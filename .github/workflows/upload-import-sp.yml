@@ -1,0 +1,294 @@
+name: STA-AEMY - Upload to SharePoint
+
+# TODO
+# Use the issue context to determine import zip (and still allow it as an optional parameter)
+
+env:
+  SHAREPOINT_TENANT_ID: ${{ secrets.SHAREPOINT_TENANT_ID }}
+  AZURE_APP_ID: ${{ vars.AZURE_APP_ID }}
+  AZURE_CERTIFICATE_BASE64: ${{ secrets.AZURE_CERTIFICATE_BASE64 }}
+  AZURE_CERTIFICATE_PASSWORD: ${{ secrets.AZURE_CERTIFICATE_PASSWORD }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      # Zip URL is only valid for 60 minutes.
+      zip_url:
+        description: 'The URL of the zip file to download'
+        required: true
+        default: 'https://spacecat-scraper.s3.us-east-1.amazonaws.com/imports/cdd8e755-0701-43c9-bf16-557f97d43e50/import-result.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAUDXQXZO4BFEVTKVP%2F20250401%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250401T200849Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEF0aCXVzLWVhc3QtMSJHMEUCIQCs3MX7FdpJJVM1QdDN36sQOrzXXAH%2FcteAcNiNwrkTygIgROlHvq3hzNFfi2gALjbkFyRHZq9OyQV8%2BmvNTOobfgcqmgMIxf%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARADGgwyODI4OTg5NzU2NzIiDH3bKP21L4HVM2DmviruAneQOG8m31BNi5ZI0R358C42XcouQkVJbgZr0ZdCL%2F3GuXK42DUAogwUwpJHc2bS7n%2B7znpGE5EfV%2Fe1Jx9qyk6iFYAxJKQEuF%2Fk0SBVA5h4QR%2F8wBeOi149w8NOMQ3xLngRnvtSpRKk%2FI2x2H18FmHvdTlR7BcJ6AgoQnaTQmDyYb9bEG%2B7gy8UQnYbYgedLKngrLnYwbgMYmXH5nvK8fsH6ogz4GdEkgfU%2Fb5J9sYKe8h4bd2FM%2ByrXzfs19Eo08B6ne9l9RI8Fe%2FU%2BXnxRS1kKdXBrL%2FdBsbYeUeXxaAVh0B7tJCprLRxVreBFNjDXZ9Qyq0eITKSuVDIljWYXfNDF%2FeAK%2F4KRgrbpl91hNYqjXIfdR5Nb8YhP%2BX%2FWCXj211RsFMiABrucJ3qJxjXJpT4D8G4zsnw2O34bqW1ex8mgIsCXX%2FisAB5cD2hgTZpw5G%2FOak9AcqgpesbGbsS5kr1uQViqFPqcFclywdnljDNj7G%2FBjqdAbHirQuGevM2%2FCt0ggsMyI8e6luGYHNnZ5s0pLfpKa8gec%2F26kgxLY1SldiDLIfvZm1NkesdayMRc66L7nufaBGrpR1XcYzjuAJW9n22Pu6bZYYwDL8bjpk%2Fk1jolQjxC4d9KeW6qPvVnuesKFiA1%2F2B8JxM8pfSvqWEL5qIJ4IatNvjrnCyNPo4o246RgTsqO28MQQ70EQe%2BF2Z9IU%3D&X-Amz-Signature=d1d96ef44c5cdbbcb700f16ed13672269c999503f579bd098906cee8eed7dcbc&X-Amz-SignedHeaders=host&x-id=GetObject'
+      aemy_callbacks:
+        description: 'The AEMY context as a string.'
+        required: true
+        default: "{\"ok\":\"https://sta-dev-fapp-coordinator.azurewebsites.net/api/fn-ghapp/callbacks/ok/aemdemos/sta-top-playground/36\",\"error\":\"https://sta-dev-fapp-coordinator.azurewebsites.net/api/fn-ghapp/callbacks/error/aemdemos/sta-top-playground/36\",\"progress\":\"https://sta-dev-fapp-coordinator.azurewebsites.net/api/fn-ghapp/callbacks/progress/aemdemos/sta-top-playground/36\",\"apiKey\":\"bAfZqyBfo05H1ANCbxKzB1Y7KkR4yofDKI6hXNq7\"}"
+      aemy_context:
+        description: 'The AEMY context as a string.'
+        required: true
+        default: "{\"project\":{\"owner\":\"aemdemos\",\"repo\":\"sta-top-playground\",\"defaultBranch\":\"main\"},\"conversation\":{\"id\":35,\"instruction\":\"Analyzesite\",\"input\":\"\",\"plan\":[\"Site-urls\",\"Step2\"]},\"development\":{\"issueId\":35,\"branch\":\"issue-35\",\"changed\":false,\"changes\":[]},\"agentIndex\":1,\"agentCalls\":[{\"agentId\":\"ghagent\",\"function\":\"gh_create_branch\",\"parameters\":{}},{\"agentId\":\"inventory\",\"function\":\"site-urls\",\"parameters\":{\"url\":\"https://unifyrare.com/\"}},{\"agentId\":\"ghagent\",\"function\":\"gh_create_pull_request\",\"parameters\":{}},{\"agentId\":\"ghagent\",\"function\":\"gh_request_linting\",\"parameters\":{}}]}"
+
+permissions:
+  contents: write
+
+jobs:
+  read-and-upload-import-zip:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check inputs
+        run: |
+          npm --version
+          if [ -z "${{ env.SHAREPOINT_TENANT_ID }}" ]; then
+            echo "Error: SHAREPOINT_TENANT_ID is not set."
+            exit 1
+          fi
+          if [ -z "${{ env.AZURE_APP_ID }}" ]; then
+            echo "Error: AZURE_APP_ID is not set."
+            exit 1
+          fi
+          if [ -z "${{ env.AZURE_CERTIFICATE_BASE64 }}" ]; then
+            echo "Error: AZURE_CERTIFICATE_BASE64 is not set in the GitHub secrets."
+            exit 1
+          fi
+          if [ -z "${{ env.AZURE_CERTIFICATE_PASSWORD }}" ]; then
+            echo "Error: AZURE_CERTIFICATE_PASSWORD is not set in the GitHub secrets."
+            exit 1
+          fi
+          if [ -z "${{ github.event.inputs.zip_url }}" ]; then
+            echo "Error: Import Zip URL is not set."
+            exit 1
+          fi
+          # Create temp directory to download the zip and extract its contents into.
+          temp_dir=$(mktemp -d)
+          echo "temp_dir=${temp_dir}" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y unzip
+          # sudo apt-get install jq
+
+      - name: Set up the callback URLs
+        run: |
+          if [ -z "${{ github.event.inputs.aemy_callbacks }}" ]; then
+            echo "Warning: Status call backs will not be executed. Missing callback in the context."
+          else
+            callback_apikey=${{ fromJSON(github.event.inputs.aemy_callbacks).apikey }}
+            ok_callback_url=${{ fromJSON(github.event.inputs.aemy_callbacks).ok }}
+            error_callback_url=${{ fromJSON(github.event.inputs.aemy_callbacks).error }}
+            progress_callback_url=${{ fromJSON(github.event.inputs.aemy_callbacks).progress }}
+          fi
+          
+          echo "ok_callback_url=${ok_callback_url}"
+          
+          if [ -z "${callback_apikey}" ] || [ "${callback_apikey}" == "null" ]; then
+            echo "Warning: Status call backs will not be executed. Missing api key."
+            callback_apikey=''
+          fi
+          if [ -z "${ok_callback_url}" ] || [ "${ok_callback_url}" == "null" ]; then
+            echo "Warning: OK status call backs will not be executed. Missing ok url."
+            ok_callback_url=''
+          fi
+          if [ -z "${error_callback_url}" ] || [ "${error_callback_url}" == "null" ]; then
+            echo "Warning: Error status call backs will not be executed. Missing error url."
+            error_callback_url=''
+          fi
+          if [ -z "${progress_callback_url}" ] || [ "${progress_callback_url}" == "null" ]; then
+            echo "Warning: Progress status call backs will not be executed. Missing progress url."
+            progress_callback_url=''
+          fi
+
+          # Ensure change from 'null' to '' is set in the environment.
+          echo "ok_callback_url=${ok_callback_url}" >> $GITHUB_ENV
+          echo "error_callback_url=${error_callback_url}" >> $GITHUB_ENV
+          echo "progress_callback_url=${progress_callback_url}" >> $GITHUB_ENV
+          echo "callback_apikey=${callback_apikey}" >> $GITHUB_ENV
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Sharepoint Upload environment
+        run: |
+          cd ${{ github.workspace }}/.github/actions/upload-sharepoint
+          npm install
+
+      - name: Read fstab file
+        id: fstab_data
+        uses: pietrobolcato/action-read-yaml@1.1.0
+        with:
+          config: ${{ github.workspace }}/fstab.yaml
+
+      - name: Set up the mountpoints and folders
+        env:
+          FSTAB_CONTEXT: ${{ toJson(steps.fstab_data.outputs) }}
+        run: |
+          echo "FSTAB_CONTEXT $FSTAB_CONTEXT"
+          mountpoints='{ ';
+          folders='{ ';
+          foundFolders=false;
+          while read line; do
+            echo "line: $line"
+            if (echo "$line" | grep -q 'folders:'); then
+              foundFolders=true
+              echo Skipping...
+              continue;
+            fi
+            if (echo "$line" | grep -q 'mountpoints:'); then
+              echo Skipping...
+              continue;
+            fi
+            if [ -z "$line" ]; then
+              echo Skipping...
+              continue;
+            fi
+            name=$(echo "$line" | cut -f1 -d:)
+            value=$(echo "$line" | cut -f2- -d: | cut -c2-)
+            echo "$name and $value"
+            next="\"$name\": \"$value\""
+            if ($foundFolders); then
+              if [ "$folders" == "{ " ]; then
+                folders+="$next"
+              else
+                folders+=", $next"
+              fi
+            else
+              if [ "$name" == "/" ]; then
+                echo "FIRST_MP=$value" >> $GITHUB_ENV
+              fi
+              if [ "$mountpoints" == "{ " ]; then
+                mountpoints+="$next"
+              else
+                mountpoints+=", $next"
+              fi
+            fi
+          done < "${{ github.workspace }}/fstab.yaml"
+
+          mountpoints+=' }'
+          folders+=' }'
+          echo "mountpoint: $mountpoints"
+          echo "folder: $folders"
+          echo "mountpoints=$mountpoints" >> $GITHUB_ENV
+          echo "folders=$folders" >> $GITHUB_ENV
+
+      - name: Report download progress
+        run: |
+          if [ -n "${{ env.progress_callback_url }}" ]; then
+            curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+             -H "Content-Type: application/json" \
+             -X POST \
+             -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"Downloading zip...\" }}" \
+             ${{ env.progress_callback_url }}
+          fi
+
+      - name: Download import zip file
+        run: |
+          echo "Downloading the import zip to ${{ env.temp_dir }}..."
+          curl -Lo "${{ env.temp_dir }}/import.zip" "${{ github.event.inputs.zip_url }}" 2>&1 \
+           || { echo "Import zip cannot be fetched yet. Please wait a few minutes and try again."; }
+
+      - name: Report download failure or extraction progress
+        run: |
+          if [ ! -f "${{ env.temp_dir }}/import.zip" ]; then
+            if [ -n "${{ env.error_callback_url }}" ]; then
+              curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+               -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"Failed to download zip...\" }}" \
+               ${{ env.error_callback_url }}
+            fi
+            echo " Import zip file not found. Check the output of the previous step. Exiting."
+            exit 1
+          fi
+          
+          # Zip exists, check if it is a valid zip file.
+          chmod 755 "${{ env.temp_dir }}/import.zip"
+          ls -hl "${{ env.temp_dir }}/import.zip"
+          if ! file "${{ env.temp_dir }}/import.zip" | grep -q 'Zip archive data'; then
+            if [ -n "${{ env.error_callback_url }}" ]; then
+              curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+               -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \" Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)?\" }}" \
+               ${{ env.error_callback_url }}
+            fi
+            echo ": Downloaded file is not a valid zip file.  Did the URL expire? Exiting."
+            exit 1        
+          fi
+          
+          # Zip is good.  Report that extraction is starting.
+          if [ -n "${{ env.progress_callback_url }}" ]; then
+            curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+             -H "Content-Type: application/json" \
+             -X POST \
+             -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"Extracting zip...\" }}" \
+             ${{ env.progress_callback_url }}
+          fi
+
+      - name: Extract import zip contents
+        run: |
+          unzip ${{ env.temp_dir }}/import.zip -d "${{ env.temp_dir }}/content" \
+          || { echo "Extraction of the Import zip failed. Please wait a few minutes and try again."; exit 1; }
+
+      - name: Run SharePoint Upload Action
+        id: sharepoint-upload-step
+        run: |
+          bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh "${{ env.temp_dir }}/content/docx" \
+            "${{ env.FIRST_MP }}" "${{ env.SHAREPOINT_TENANT_ID }}" "${{ env.AZURE_APP_ID }}" \
+            "${{ env.AZURE_CERTIFICATE_BASE64 }}" "${{ env.AZURE_CERTIFICATE_PASSWORD }}" \
+            "${{ github.event.inputs.aemy_callbacks }}" "${{ github.event.inputs.aemy_context }}"
+        shell: bash
+
+      #        uses: ./.github/actions/upload-sharepoint
+        #        with:
+        #          aemy_callbacks: ${{ github.event.inputs.aemy_callbacks }}
+        #          aemy_context: ${{ github.event.inputs.aemy_context }}
+        #          upload_source: ${{ env.temp_dir }}/content/docx
+        #          upload_target: ${{ env.FIRST_MP }}
+        #          sharepoint_client_id: ${{ env.SHAREPOINT_CLIENT_ID }}
+        #          sharepoint_tenant_id: ${{ env.SHAREPOINT_TENANT_ID }}
+        #          sharepoint_client_secret: ${{ env.SHAREPOINT_CLIENT_SECRET }}
+
+      - name: Analyze upload results
+        run: |
+          echo "Successes: ${{ env.UPLOAD_SUCCESSES }}"
+          echo "Failed Files: ${{ env.UPLOAD_FAILED_FILES }}"
+          echo "Message: ${{ env.UPLOAD_MESSAGE }}"
+          echo "Failures: ${{ env.UPLOAD_FAILURES }}"
+          
+          progress="✅ Success count: ${{ env.UPLOAD_SUCCESSES }} ❌ Failed count: ${{ env.UPLOAD_FAILURES }} 🚨 Failed files: ${{ env.UPLOAD_FAILED_FILES }}"
+          echo $progress
+          
+          if [ -n "${{ env.progress_callback_url }}" ]; then
+            curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+             -H "Content-Type: application/json" \
+             -X POST \
+             -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"$progress\" }}" \
+             ${{ env.progress_callback_url }}
+          fi
+
+      - name: Fail if upload fails
+        if: ${{ env.UPLOAD_FAILURES > 0 }}
+        run: |
+          message="Failed to upload ${{ env.UPLOAD_FAILURES }} files. Uploaded ${{ env.UPLOAD_SUCCESSES }} files successfully."
+          if [ -n "${{ env.error_callback_url }}" ]; then
+            curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+              -X POST \
+              -F 'response={"message": "$message"}' \
+              ${{ env.error_callback_url }}
+          fi
+          exit 1
+
+      - name: Report upload success
+        run: |
+          echo "Upload attempted.  Analysing results..."
+          message="Upload succeeded. Uploaded ${{ env.UPLOAD_SUCCESSES }} files."
+          if [ -n "${{ env.ok_callback_url }}" ]; then
+            curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+              -X POST \
+              -F 'response={"message": "$message"}' \
+              ${{ env.ok_callback_url }}
+          fi
+
+      - name: Clean up temporary files
+        if: always()
+        run: |
+          # Delete the temp dir immediately, having system delete it eventually as a redundancy.
+          rm -rf "${{ env.temp_dir }}"
