@@ -16,15 +16,12 @@ on:
       zip_url:
         description: 'The URL of the zip file to download'
         required: true
-        default: 'https://spacecat-scraper.s3.us-east-1.amazonaws.com/imports/cdd8e755-0701-43c9-bf16-557f97d43e50/import-result.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAUDXQXZO4BFEVTKVP%2F20250401%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250401T200849Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEF0aCXVzLWVhc3QtMSJHMEUCIQCs3MX7FdpJJVM1QdDN36sQOrzXXAH%2FcteAcNiNwrkTygIgROlHvq3hzNFfi2gALjbkFyRHZq9OyQV8%2BmvNTOobfgcqmgMIxf%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARADGgwyODI4OTg5NzU2NzIiDH3bKP21L4HVM2DmviruAneQOG8m31BNi5ZI0R358C42XcouQkVJbgZr0ZdCL%2F3GuXK42DUAogwUwpJHc2bS7n%2B7znpGE5EfV%2Fe1Jx9qyk6iFYAxJKQEuF%2Fk0SBVA5h4QR%2F8wBeOi149w8NOMQ3xLngRnvtSpRKk%2FI2x2H18FmHvdTlR7BcJ6AgoQnaTQmDyYb9bEG%2B7gy8UQnYbYgedLKngrLnYwbgMYmXH5nvK8fsH6ogz4GdEkgfU%2Fb5J9sYKe8h4bd2FM%2ByrXzfs19Eo08B6ne9l9RI8Fe%2FU%2BXnxRS1kKdXBrL%2FdBsbYeUeXxaAVh0B7tJCprLRxVreBFNjDXZ9Qyq0eITKSuVDIljWYXfNDF%2FeAK%2F4KRgrbpl91hNYqjXIfdR5Nb8YhP%2BX%2FWCXj211RsFMiABrucJ3qJxjXJpT4D8G4zsnw2O34bqW1ex8mgIsCXX%2FisAB5cD2hgTZpw5G%2FOak9AcqgpesbGbsS5kr1uQViqFPqcFclywdnljDNj7G%2FBjqdAbHirQuGevM2%2FCt0ggsMyI8e6luGYHNnZ5s0pLfpKa8gec%2F26kgxLY1SldiDLIfvZm1NkesdayMRc66L7nufaBGrpR1XcYzjuAJW9n22Pu6bZYYwDL8bjpk%2Fk1jolQjxC4d9KeW6qPvVnuesKFiA1%2F2B8JxM8pfSvqWEL5qIJ4IatNvjrnCyNPo4o246RgTsqO28MQQ70EQe%2BF2Z9IU%3D&X-Amz-Signature=d1d96ef44c5cdbbcb700f16ed13672269c999503f579bd098906cee8eed7dcbc&X-Amz-SignedHeaders=host&x-id=GetObject'
       aemy_callbacks:
         description: 'The AEMY context as a string.'
         required: true
-        default: "{\"ok\":\"https://sta-dev-fapp-coordinator.azurewebsites.net/api/fn-ghapp/callbacks/ok/aemdemos/sta-top-playground/36\",\"error\":\"https://sta-dev-fapp-coordinator.azurewebsites.net/api/fn-ghapp/callbacks/error/aemdemos/sta-top-playground/36\",\"progress\":\"https://sta-dev-fapp-coordinator.azurewebsites.net/api/fn-ghapp/callbacks/progress/aemdemos/sta-top-playground/36\",\"apiKey\":\"bAfZqyBfo05H1ANCbxKzB1Y7KkR4yofDKI6hXNq7\"}"
       aemy_context:
         description: 'The AEMY context as a string.'
         required: true
-        default: "{\"project\":{\"owner\":\"aemdemos\",\"repo\":\"sta-top-playground\",\"defaultBranch\":\"main\"},\"conversation\":{\"id\":35,\"instruction\":\"Analyzesite\",\"input\":\"\",\"plan\":[\"Site-urls\",\"Step2\"]},\"development\":{\"issueId\":35,\"branch\":\"issue-35\",\"changed\":false,\"changes\":[]},\"agentIndex\":1,\"agentCalls\":[{\"agentId\":\"ghagent\",\"function\":\"gh_create_branch\",\"parameters\":{}},{\"agentId\":\"inventory\",\"function\":\"site-urls\",\"parameters\":{\"url\":\"https://unifyrare.com/\"}},{\"agentId\":\"ghagent\",\"function\":\"gh_create_pull_request\",\"parameters\":{}},{\"agentId\":\"ghagent\",\"function\":\"gh_request_linting\",\"parameters\":{}}]}"
 
 permissions:
   contents: write
@@ -95,7 +92,6 @@ jobs:
           if [ -n "$missing_vars" ]; then
             echo "Error: The following variables are not set: $missing_vars"
             if [ -n "${{ env.error_callback_url }}" ]; then
-              echo Context is ${{ github.event.inputs.aemy_context }}
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                 -H "Content-Type: application/json" \
                 -X POST \
