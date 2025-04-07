@@ -95,7 +95,7 @@ jobs:
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                 -H "Content-Type: application/json" \
                 -X POST \
-                -d "{\"context\": ${{ github.event.inputs.aemy_context }}, \"response\": { \"message\": \"The following environment variables are not set\" }}" \
+                -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"The following environment variables are not set\" }}" \
                 ${{ env.error_callback_url }}
             fi
             exit 1
