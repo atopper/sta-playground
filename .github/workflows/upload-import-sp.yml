@@ -71,6 +71,7 @@ jobs:
           echo "callback_apikey=${callback_apikey}" >> $GITHUB_ENV
 
       - name: Check inputs
+        shell: bash
         run: |
           npm --version
           missing_vars=""
@@ -102,7 +103,9 @@ jobs:
             echo "Error: The following variables are not set: $missing_vars"
             exit 1
           fi
-    
+
+      - name: Create temp directory
+        run: |
           # Create temp directory to download the zip and extract its contents into.
           temp_dir=$(mktemp -d)
           echo "temp_dir=${temp_dir}" >> $GITHUB_ENV
