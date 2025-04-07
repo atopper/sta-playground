@@ -93,13 +93,13 @@ jobs:
           fi
       
           if [ -n "$missing_vars" ]; then
-            if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
-               -H "Content-Type: application/json" \
-               -X POST \
-               -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"The following environment variables are not set: $missing_vars\" }}" \
-               ${{ env.error_callback_url }}
-            fi
+            #            if [ -n "${{ env.error_callback_url }}" ]; then
+            #              curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+            #               -H "Content-Type: application/json" \
+            #               -X POST \
+            #               -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"The following environment variables are not set: $missing_vars\" }}" \
+            #               ${{ env.error_callback_url }}
+            #            fi
             echo "Error: The following variables are not set: $missing_vars"
             exit 1
           fi
