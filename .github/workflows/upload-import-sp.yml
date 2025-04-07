@@ -1,8 +1,8 @@
 name: STA-AEMY - Upload to SharePoint
-
-# TODO
-# Use the issue context to determine import zip (and still allow it as an optional parameter)
-
+description: |
+  Uploads the import zip file to SharePoint. The zip file is downloaded from a URL and extracted. The contents are uploaded to SharePoint.
+  The upload is done using the SharePoint Upload Action.
+  The action is triggered by a workflow dispatch event with inputs for the zip URL and AEMY context.
 env:
   SHAREPOINT_TENANT_ID: ${{ secrets.SHAREPOINT_TENANT_ID }}
   AZURE_APP_ID: ${{ vars.AZURE_APP_ID }}
@@ -93,14 +93,15 @@ jobs:
           fi
       
           if [ -n "$missing_vars" ]; then
-            #            if [ -n "${{ env.error_callback_url }}" ]; then
-            #              curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
-            #               -H "Content-Type: application/json" \
-            #               -X POST \
-            #               -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"The following environment variables are not set: $missing_vars\" }}" \
-            #               ${{ env.error_callback_url }}
-            #            fi
             echo "Error: The following variables are not set: $missing_vars"
+            if [ -n "${{ env.error_callback_url }}" ]; then
+              echo Error callback is ${{ env.error_callback_url }}
+              curl -H "x-api-key: ${{ env.callback_apikey }}" \
+                -H "Content-Type: application/json" \
+                -X POST \
+                -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"The following environment variables are not set\" }}" \
+                ${{ env.error_callback_url }}
+            fi
             exit 1
           fi
 
@@ -184,7 +185,7 @@ jobs:
       - name: Report download progress
         run: |
           if [ -n "${{ env.progress_callback_url }}" ]; then
-            curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+            curl -H "x-api-key: ${{ env.callback_apikey }}" \
              -H "Content-Type: application/json" \
              -X POST \
              -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"Downloading zip...\" }}" \
@@ -201,7 +202,7 @@ jobs:
         run: |
           if [ ! -f "${{ env.temp_dir }}/import.zip" ]; then
             if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+              curl -H "x-api-key: ${{ env.callback_apikey }}" \
                -H "Content-Type: application/json" \
                -X POST \
                -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"Failed to download zip...\" }}" \
@@ -216,7 +217,7 @@ jobs:
           ls -hl "${{ env.temp_dir }}/import.zip"
           if ! file "${{ env.temp_dir }}/import.zip" | grep -q 'Zip archive data'; then
             if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+              curl -H "x-api-key: ${{ env.callback_apikey }}" \
                -H "Content-Type: application/json" \
                -X POST \
                -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \" Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)?\" }}" \
@@ -228,7 +229,7 @@ jobs:
           
           # Zip is good.  Report that extraction is starting.
           if [ -n "${{ env.progress_callback_url }}" ]; then
-            curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+            curl -H "x-api-key: ${{ env.callback_apikey }}" \
              -H "Content-Type: application/json" \
              -X POST \
              -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"Extracting zip...\" }}" \
@@ -270,7 +271,7 @@ jobs:
           echo $progress
           
           if [ -n "${{ env.progress_callback_url }}" ]; then
-            curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+            curl -H "x-api-key: ${{ env.callback_apikey }}" \
              -H "Content-Type: application/json" \
              -X POST \
              -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"$progress\" }}" \
@@ -282,7 +283,7 @@ jobs:
         run: |
           message="Failed to upload ${{ env.UPLOAD_FAILURES }} files. Uploaded ${{ env.UPLOAD_SUCCESSES }} files successfully."
           if [ -n "${{ env.error_callback_url }}" ]; then
-            curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+            curl -H "x-api-key: ${{ env.callback_apikey }}" \
               -X POST \
               -F 'response={"message": "$message"}' \
               ${{ env.error_callback_url }}
@@ -294,7 +295,7 @@ jobs:
           echo "Upload attempted.  Analysing results..."
           message="Upload succeeded. Uploaded ${{ env.UPLOAD_SUCCESSES }} files."
           if [ -n "${{ env.ok_callback_url }}" ]; then
-            curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+            curl -H "x-api-key: ${{ env.callback_apikey }}" \
               -X POST \
               -F 'response={"message": "$message"}' \
               ${{ env.ok_callback_url }}
