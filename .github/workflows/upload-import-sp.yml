@@ -34,38 +34,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check inputs
-        run: |
-          npm --version
-          if [ -z "${{ env.SHAREPOINT_TENANT_ID }}" ]; then
-            echo "Error: SHAREPOINT_TENANT_ID is not set."
-            exit 1
-          fi
-          if [ -z "${{ env.AZURE_APP_ID }}" ]; then
-            echo "Error: AZURE_APP_ID is not set."
-            exit 1
-          fi
-          if [ -z "${{ env.AZURE_CERTIFICATE_BASE64 }}" ]; then
-            echo "Error: AZURE_CERTIFICATE_BASE64 is not set in the GitHub secrets."
-            exit 1
-          fi
-          if [ -z "${{ env.AZURE_CERTIFICATE_PASSWORD }}" ]; then
-            echo "Error: AZURE_CERTIFICATE_PASSWORD is not set in the GitHub secrets."
-            exit 1
-          fi
-          if [ -z "${{ github.event.inputs.zip_url }}" ]; then
-            echo "Error: Import Zip URL is not set."
-            exit 1
-          fi
-          # Create temp directory to download the zip and extract its contents into.
-          temp_dir=$(mktemp -d)
-          echo "temp_dir=${temp_dir}" >> $GITHUB_ENV
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get install -y unzip
-          # sudo apt-get install jq
-
       - name: Set up the callback URLs
         run: |
           if [ -z "${{ github.event.inputs.aemy_callbacks }}" ]; then
@@ -101,6 +69,48 @@ jobs:
           echo "error_callback_url=${error_callback_url}" >> $GITHUB_ENV
           echo "progress_callback_url=${progress_callback_url}" >> $GITHUB_ENV
           echo "callback_apikey=${callback_apikey}" >> $GITHUB_ENV
+
+      - name: Check inputs
+        run: |
+          npm --version
+          missing_vars=""
+      
+          if [ -z "${{ env.SHAREPOINT_TENANT_ID }}" ]; then
+            missing_vars+="SHAREPOINT_TENANT_ID "
+          fi
+          if [ -z "${{ env.AZURE_APP_ID }}" ]; then
+            missing_vars+="AZURE_APP_ID "
+          fi
+          if [ -z "${{ env.AZURE_CERTIFICATE_BASE64 }}" ]; then
+           missing_vars+="AZURE_CERTIFICATE_BASE64 "
+          fi
+          if [ -z "${{ env.AZURE_CERTIFICATE_PASSWORD }}" ]; then
+           missing_vars+="AZURE_CERTIFICATE_PASSWORD "
+          fi
+          if [ -z "${{ github.event.inputs.zip_url }}" ]; then
+           missing_vars+="zip_url "
+          fi
+      
+          if [ -n "$missing_vars" ]; then
+            if [ -n "${{ env.error_callback_url }}" ]; then
+              curl -H "x-api-key: ${{ github.event.inputs.callback_api_key }}" \
+               -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"The following environment variables are not set: $missing_vars\" }}" \
+               ${{ env.error_callback_url }}
+            fi
+            echo "Error: The following variables are not set: $missing_vars"
+            exit 1
+          fi
+    
+          # Create temp directory to download the zip and extract its contents into.
+          temp_dir=$(mktemp -d)
+          echo "temp_dir=${temp_dir}" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y unzip
+          # sudo apt-get install jq
 
       - name: Checkout repo
         uses: actions/checkout@v4
