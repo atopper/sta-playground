@@ -91,6 +91,7 @@ jobs:
       
           if [ -n "$missing_vars" ]; then
             echo "Error: The following variables are not set: $missing_vars"
+            echo Context ${{ github.event.inputs.aemy_context }}
             stringified=$(echo ${{ github.event.inputs.aemy_context }} | jq '@json')
             echo stringified $stringified
             if [ -n "${{ env.error_callback_url }}" ]; then
