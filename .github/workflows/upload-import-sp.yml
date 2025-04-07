@@ -1,8 +1,10 @@
 name: STA-AEMY - Upload to SharePoint
+
 description: |
   Uploads the import zip file to SharePoint. The zip file is downloaded from a URL and extracted. The contents are uploaded to SharePoint.
   The upload is done using the SharePoint Upload Action.
   The action is triggered by a workflow dispatch event with inputs for the zip URL and AEMY context.
+
 env:
   SHAREPOINT_TENANT_ID: ${{ secrets.SHAREPOINT_TENANT_ID }}
   AZURE_APP_ID: ${{ vars.AZURE_APP_ID }}
@@ -105,20 +107,31 @@ jobs:
         run: |
           # Create temp directory to download the zip and extract its contents into.
           temp_dir=$(mktemp -d)
+          if [ $? -ne 0 ]; then
+            echo "Could not create a temporary folder for extraction."
+            if [ -n "${{ env.error_callback_url }}" ]; then
+              curl -H "x-api-key: ${{ env.callback_apikey }}" \
+                -H "Content-Type: application/json" \
+                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Could not create a temporary folder for extraction.\" }}" \
+                -X POST \
+                ${{ env.error_callback_url }}
+            fi
+          
+            exit 1
+          fi
           echo "temp_dir=${temp_dir}" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: |
           sudo apt-get install -y unzip
-          # sudo apt-get install jq
 
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Sharepoint Upload environment
-        run: |
-          cd ${{ github.workspace }}/.github/actions/upload-sharepoint
-          npm install
+      #      - name: Setup Sharepoint Upload environment
+      #        run: |
+      #          cd ${{ github.workspace }}/.github/actions/upload-sharepoint
+      #          npm install
 
       - name: Read fstab file
         id: fstab_data
@@ -192,11 +205,12 @@ jobs:
         run: |
           echo "Downloading the import zip to ${{ env.temp_dir }}..."
           curl -Lo "${{ env.temp_dir }}/import.zip" "${{ github.event.inputs.zip_url }}" 2>&1 \
-           || { echo "Import zip cannot be fetched yet. Please wait a few minutes and try again."; }
+           || { echo "Import zip cannot be fetched. Please wait a few minutes and try again."; }
 
       - name: Report download failure or extraction progress
         run: |
           if [ ! -f "${{ env.temp_dir }}/import.zip" ]; then
+            echo " Import zip file not found. Check the output of the previous step. Exiting."
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                -H "Content-Type: application/json" \
@@ -204,7 +218,6 @@ jobs:
                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Failed to download zip...\" }}" \
                ${{ env.error_callback_url }}
             fi
-            echo " Import zip file not found. Check the output of the previous step. Exiting."
             exit 1
           fi
           
@@ -212,14 +225,14 @@ jobs:
           chmod 755 "${{ env.temp_dir }}/import.zip"
           ls -hl "${{ env.temp_dir }}/import.zip"
           if ! file "${{ env.temp_dir }}/import.zip" | grep -q 'Zip archive data'; then
+            echo ": Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)? Exiting."
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                -H "Content-Type: application/json" \
                -X POST \
-               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \" Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)?\" }}" \
+               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \" Downloaded file is not a valid zip file. Did the URL expire?\" }}" \
                ${{ env.error_callback_url }}
             fi
-            echo ": Downloaded file is not a valid zip file.  Did the URL expire? Exiting."
             exit 1        
           fi
           
@@ -234,8 +247,25 @@ jobs:
 
       - name: Extract import zip contents
         run: |
-          unzip ${{ env.temp_dir }}/import.zip -d "${{ env.temp_dir }}/content" \
-          || { echo "Extraction of the Import zip failed. Please wait a few minutes and try again."; exit 1; }
+          unzip ${{ env.temp_dir }}/import.zip -d "${{ env.temp_dir }}/content"
+          if [ $? -ne 0 ]; then
+            echo "Extraction of the Import zip failed. Please wait a few minutes and try again."
+            if [ -n "${{ env.error_callback_url }}" ]; then
+              curl -H "x-api-key: ${{ env.callback_apikey }}" \
+               -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Extraction of the Import zip failed.\" }}" \
+               ${{ env.error_callback_url }}
+            fi
+            exit 1;
+          fi
+          if [ -n "${{ env.progress_callback_url }}" ]; then
+            curl -H "x-api-key: ${{ env.callback_apikey }}" \
+             -H "Content-Type: application/json" \
+             -X POST \
+             -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Zip extracted\" }}" \
+             ${{ env.progress_callback_url }}
+          fi
 
       - name: Run SharePoint Upload Action
         id: sharepoint-upload-step
@@ -288,8 +318,8 @@ jobs:
 
       - name: Report upload success
         run: |
-          echo "Upload attempted.  Analysing results..."
           message="Upload succeeded. Uploaded ${{ env.UPLOAD_SUCCESSES }} files."
+          echo $message
           if [ -n "${{ env.ok_callback_url }}" ]; then
             curl -H "x-api-key: ${{ env.callback_apikey }}" \
               -X POST \
