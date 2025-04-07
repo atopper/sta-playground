@@ -91,13 +91,12 @@ jobs:
       
           if [ -n "$missing_vars" ]; then
             echo "Error: The following variables are not set: $missing_vars"
-            echo Context ${{ github.event.inputs.aemy_context }}
-            stringified=$(echo ${{ github.event.inputs.aemy_context }} | jq '@json')
+            echo Context ${{ fromJSON(github.event.inputs.aemy_context) }}
             echo stringified $stringified
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                 -H "Content-Type: application/json" \
-                -d "{\"context\": \"$stringified\", \"response\": { \"message\": \"The following environment variables are not set\" }}" \
+                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"The following environment variables are not set\" }}" \
                 -X POST \
                 ${{ env.error_callback_url }}
             fi
