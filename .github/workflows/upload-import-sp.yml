@@ -64,14 +64,15 @@ jobs:
           fi
 
           # Ensure change from 'null' to '' is set in the environment.
-          echo "ok_callback_url=${ok_callback_url}" >> $GITHUB_ENV
-          echo "error_callback_url=${error_callback_url}" >> $GITHUB_ENV
-          echo "progress_callback_url=${progress_callback_url}" >> $GITHUB_ENV
-          echo "callback_apikey=${callback_apikey}" >> $GITHUB_ENV
+          #          echo "ok_callback_url=${ok_callback_url}" >> $GITHUB_ENV
+          #          echo "error_callback_url=${error_callback_url}" >> $GITHUB_ENV
+          #          echo "progress_callback_url=${progress_callback_url}" >> $GITHUB_ENV
+          #          echo "callback_apikey=${callback_apikey}" >> $GITHUB_ENV
 
       - name: Check inputs
         shell: bash
         run: |
+          echo NPM Version:
           npm --version
           missing_vars=""
       
