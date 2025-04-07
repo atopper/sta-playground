@@ -91,8 +91,6 @@ jobs:
       
           if [ -n "$missing_vars" ]; then
             echo "Error: The following variables are not set: $missing_vars"
-            echo Context ${{ fromJSON(github.event.inputs.aemy_context) }}
-            echo stringified $stringified
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                 -H "Content-Type: application/json" \
@@ -186,7 +184,7 @@ jobs:
             curl -H "x-api-key: ${{ env.callback_apikey }}" \
              -H "Content-Type: application/json" \
              -X POST \
-             -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"Downloading zip...\" }}" \
+             -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Downloading zip...\" }}" \
              ${{ env.progress_callback_url }}
           fi
 
@@ -203,7 +201,7 @@ jobs:
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                -H "Content-Type: application/json" \
                -X POST \
-               -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"Failed to download zip...\" }}" \
+               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Failed to download zip...\" }}" \
                ${{ env.error_callback_url }}
             fi
             echo " Import zip file not found. Check the output of the previous step. Exiting."
@@ -218,7 +216,7 @@ jobs:
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                -H "Content-Type: application/json" \
                -X POST \
-               -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \" Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)?\" }}" \
+               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \" Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)?\" }}" \
                ${{ env.error_callback_url }}
             fi
             echo ": Downloaded file is not a valid zip file.  Did the URL expire? Exiting."
@@ -230,7 +228,7 @@ jobs:
             curl -H "x-api-key: ${{ env.callback_apikey }}" \
              -H "Content-Type: application/json" \
              -X POST \
-             -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"Extracting zip...\" }}" \
+             -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Extracting zip...\" }}" \
              ${{ env.progress_callback_url }}
           fi
 
@@ -272,7 +270,7 @@ jobs:
             curl -H "x-api-key: ${{ env.callback_apikey }}" \
              -H "Content-Type: application/json" \
              -X POST \
-             -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"$progress\" }}" \
+             -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$progress\" }}" \
              ${{ env.progress_callback_url }}
           fi
 
@@ -283,7 +281,7 @@ jobs:
           if [ -n "${{ env.error_callback_url }}" ]; then
             curl -H "x-api-key: ${{ env.callback_apikey }}" \
               -X POST \
-              -F 'response={"message": "$message"}' \
+              -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
               ${{ env.error_callback_url }}
           fi
           exit 1
@@ -295,7 +293,7 @@ jobs:
           if [ -n "${{ env.ok_callback_url }}" ]; then
             curl -H "x-api-key: ${{ env.callback_apikey }}" \
               -X POST \
-              -F 'response={"message": "$message"}' \
+              -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": "$message"}' \
               ${{ env.ok_callback_url }}
           fi
 
