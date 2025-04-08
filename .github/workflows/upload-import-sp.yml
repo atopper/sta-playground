@@ -190,7 +190,7 @@ jobs:
       - name: Parse Mountpoint
         run: |
           echo Parsing ${{ env.FIRST_MP }}
-          if [[ "${{ env.FIRST_MP }}" =~ https://graph\.microsoft\.com/v1\.0/sites/([^:]+):/(.*) ]]; then
+          if [[ "${{ env.FIRST_MP }}" =~ ^https://([a-zA-Z0-9.-]+)/(/sites/[a-zA-Z0-9_-]+) ]]; then
             echo "in here at least"
             DOMAIN="${BASH_REMATCH[1]}"
             PATH="${BASH_REMATCH[2]}"
