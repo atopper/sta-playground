@@ -124,7 +124,9 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install -y unzip
+          sudo apt-get install -y curl
 
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -193,7 +195,7 @@ jobs:
           if [[ "${{ env.FIRST_MP }}" =~ ^https://([a-zA-Z0-9.-]+)/(:f:/r)?(/sites/[a-zA-Z0-9_-]+) ]]; then
             echo "in here at least"
             DOMAIN="${BASH_REMATCH[1]}"
-            PATH="${BASH_REMATCH[2]}"
+            PATH="${BASH_REMATCH[3]}"
             echo "Domain: $DOMAIN"
             echo "Path: $PATH"
 
