@@ -191,14 +191,13 @@ jobs:
         run: |
           echo Parsing ${{ env.FIRST_MP }}
           if [[ "${{ env.FIRST_MP }}" =~ ^https://([a-zA-Z0-9.-]+)/(:f:/r)?(/sites/[a-zA-Z0-9_-]+) ]]; then
-            echo "in here at least"
             SP_DOMAIN="${BASH_REMATCH[1]}"
             SP_PATH="${BASH_REMATCH[3]}"
-            echo "Domain: SP_DOMAIN"
-            echo "Path: SP_PATH"
+            echo "Domain: $SP_DOMAIN"
+            echo "Path: $SP_PATH"
 
-            echo "SP_DOMAIN=SP_DOMAIN" >> $GITHUB_ENV
-            echo "SP_PATH=SP_PATH" >> $GITHUB_ENV
+            echo "SP_DOMAIN=$SP_DOMAIN" >> $GITHUB_ENV
+            echo "SP_PATH=$SP_PATH" >> $GITHUB_ENV
           else
             message="Could not determine Sharepoint mountpoint from teh fstab.yaml file. Is '/' a Sharepoint mountpoint?"
             echo $message 
