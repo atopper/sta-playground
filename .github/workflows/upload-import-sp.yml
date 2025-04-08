@@ -190,6 +190,7 @@ jobs:
       - name: Parse Mountpoint
         run: |
           if [[ $FIRST_MP =~ https://graph\.microsoft\.com/v1\.0/sites/([^:]+):/(.*) ]]; then
+            echo "in here at least"
             DOMAIN="${BASH_REMATCH[1]}"
             PATH="${BASH_REMATCH[2]}"
             echo "Domain: $DOMAIN"
