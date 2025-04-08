@@ -9,8 +9,8 @@ env:
   AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   # AZURE_CLIENT_ID might be considered the AZURE APP ID, but that meaning can be unclear.
   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-  AZURE_CERT: ${{ secrets.AZURE_CERT }}
-  AZURE_PRIVATE_KEY: ${{ secrets.AZURE_PRIVATE_KEY }}
+  AZURE_CERT_BASE64: ${{ secrets.AZURE_CERT_BASE64 }}
+  AZURE_PRIVATE_KEY_BASE64: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
 on:
   workflow_dispatch:
     inputs:
@@ -24,6 +24,9 @@ on:
       aemy_context:
         description: 'The AEMY context as a string.'
         required: true
+      action_url:
+        description: 'The URL of the repo to check the progress or the results of a workflow.'
+        required: false
 
 permissions:
   contents: write
@@ -82,26 +85,31 @@ jobs:
           #          if [ -z "${{ env.AZURE_CLIENT_ID }}" ]; then
           #            missing_vars+="AZURE_CLIENT_ID "
           #          fi
-          #          if [ -z "${{ env.AZURE_CERT }}" ]; then
-          #           missing_vars+="AZURE_CERT "
+          #          if [ -z "${{ env.AZURE_CERT_BASE64 }}" ]; then
+          #           missing_vars+="AZURE_CERT_BASE64 "
           #          fi
-          #          if [ -z "${{ env.AZURE_PRIVATE_KEY }}" ]; then
-          #           missing_vars+="AZURE_PRIVATE_KEY "
+          #          if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
+          #           missing_vars+="AZURE_PRIVATE_KEY_BASE64 "
           #          fi
           if [ -z "${{ github.event.inputs.zip_url }}" ]; then
            missing_vars+="zip_url "
           fi
           
           if [ -n "$missing_vars" ]; then
-            echo "Error: The following variables are not set: $missing_vars"
+            message="Error: The following variables are not set: $missing_vars"
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                 -H "Content-Type: application/json" \
-                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"The following environment variables are not set\" }}" \
+                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
                 -X POST \
                 ${{ env.error_callback_url }}
             fi
             exit 1
+          fi
+          
+          if [ -n "${{ env.action_url }}" ]; then
+            ACTION_URL="\n\nSee the Action URL to check the progress or the results of the workflow: ${{ env.action_url }}"
+            echo "ACTION_URL=$ACTION_URL" >> $GITHUB_ENV
           fi
 
       - name: Create temp directory
@@ -109,11 +117,12 @@ jobs:
           # Create temp directory to download the zip and extract its contents into.
           temp_dir=$(mktemp -d)
           if [ $? -ne 0 ]; then
-            echo "Could not create a temporary folder for extraction."
+            message="Could not create a temporary folder for extraction. ${{ env.ACTION_URL }}"
+            echo $message 
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                 -H "Content-Type: application/json" \
-                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Could not create a temporary folder for extraction.\" }}" \
+                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
                 -X POST \
                 ${{ env.error_callback_url }}
             fi
@@ -124,7 +133,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get install -y unzip
+          sudo apt-get install -y unzip jq uuid-runtime openssl
 
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -199,7 +208,7 @@ jobs:
             echo "SP_DOMAIN=$SP_DOMAIN" >> $GITHUB_ENV
             echo "SP_PATH=$SP_PATH" >> $GITHUB_ENV
           else
-            message="Could not determine Sharepoint mountpoint from teh fstab.yaml file. Is '/' a Sharepoint mountpoint?"
+            message="Could not determine Sharepoint mountpoint from teh fstab.yaml file. Is '/' a Sharepoint mountpoint? ${{ env.ACTION_URL }}"
             echo $message 
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
@@ -230,12 +239,13 @@ jobs:
       - name: Report download failure or extraction progress
         run: |
           if [ ! -f "${{ env.temp_dir }}/import.zip" ]; then
-            echo " Import zip file not found. Check the output of the previous step. Exiting."
+            message=" Import zip file not found. Check the output of the previous step. Exiting. ${{ env.ACTION_URL }}"
+            echo $message 
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                -H "Content-Type: application/json" \
                -X POST \
-               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Failed to download zip...\" }}" \
+               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
                ${{ env.error_callback_url }}
             fi
             exit 1
@@ -245,12 +255,13 @@ jobs:
           chmod 755 "${{ env.temp_dir }}/import.zip"
           ls -hl "${{ env.temp_dir }}/import.zip"
           if ! file "${{ env.temp_dir }}/import.zip" | grep -q 'Zip archive data'; then
-            echo ": Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)? Exiting."
+            message = ": Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)? ${{ env.ACTION_URL }}"
+            echo $message 
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                -H "Content-Type: application/json" \
                -X POST \
-               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \" Downloaded file is not a valid zip file. Did the URL expire?\" }}" \
+               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
                ${{ env.error_callback_url }}
             fi
             exit 1        
@@ -269,7 +280,7 @@ jobs:
         run: |
           unzip ${{ env.temp_dir }}/import.zip -d "${{ env.temp_dir }}/content"
           if [ $? -ne 0 ]; then
-            message="Extraction of the Import zip failed. Please wait a few minutes and try again."
+            message="Extraction of the Import zip failed. Please wait a few minutes and try again. ${{ env.ACTION_URL }}"
             echo $message
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
@@ -288,19 +299,30 @@ jobs:
              ${{ env.progress_callback_url }}
           fi
 
+      - name: Fetch site and domain id
+        run: |
+          SITE_INFO=$(curl -s -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            "https://graph.microsoft.com/v1.0/sites/adobe.sharepoint.com:/sites/HelixProjects")
+
       - name: Create AZURE Access Token
         id: token
         run: |
-          echo "${{ env.AZURE_CERT }}" > cert.pem
-          echo "${} env.AZURE_PRIVATE_KEY }}" > key.pem
+          echo "${{ env.AZURE_CERT_BASE64 }}" | base64 -d > cert.pem
+          echo "${} env.AZURE_PRIVATE_KEY_BASE64 }}" | base64 -d > key.pem
 
           JWT_HEADER=$(echo -n '{"alg":"RS256","typ":"JWT"}' | openssl base64 -A | tr '+/' '-_' | tr -d '=')
           NOW=$(date +%s)
           EXP=$((NOW + 3600))
-          JWT_PAYLOAD=$(echo -n "{\"aud\":\"https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token\",\"iss\":\"${AZURE_CLIENT_ID}\",\"sub\":\"${AZURE_CLIENT_ID}\",\"jti\":\"$(uuidgen)\",\"nbf\":${NOW},\"exp\":${EXP}}" | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+          JWT_PAYLOAD=$(echo -n '{
+              "aud": "https://login.microsoftonline.com/'"${AZURE_TENANT_ID}"'/v2.0",
+              "iss": "'"${AZURE_CLIENT_ID}"'",
+              "sub": "'"${AZURE_CLIENT_ID}"'",
+              "jti": "'"$(uuidgen)"'",
+              "nbf": '"${now}"',
+              "exp": '"${exp}"'
+            }' | openssl base64 -e | tr -d '\n=' | tr '/+' '_-')
 
           JWT_INPUT="${JWT_HEADER}.${JWT_PAYLOAD}"
-
           JWT_SIGNATURE=$(echo -n "${JWT_INPUT}" | openssl dgst -sha256 -sign key.pem | openssl base64 -A | tr '+/' '-_' | tr -d '=')
 
           CLIENT_ASSERTION="${JWT_INPUT}.${JWT_SIGNATURE}"
@@ -310,14 +332,14 @@ jobs:
             -d "client_id=${AZURE_CLIENT_ID}" \
             -d "scope=https://graph.microsoft.com/.default" \
             -d "grant_type=client_credentials" \
-            --data-urlencode "client_assertion=${CLIENT_ASSERTION}" \
             -d "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
+            -d "client_assertion=${CLIENT_ASSERTION}" \
             "https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token")
 
           ACCESS_TOKEN=$(echo "$RESPONSE" | jq -r .access_token)
 
           if [ "$ACCESS_TOKEN" == "null" ]; then
-            message="Failed to get Azure access token: $RESPONSE"
+            message="Failed to get Azure access token: $RESPONSE. ${{ env.ACTION_URL }}"
             echo $message 
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
@@ -328,22 +350,20 @@ jobs:
             exit 1
           fi
 
-          echo "access_token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
+          echo "ACCESS_TOKEN=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
 
       - name: Run SharePoint Upload Action
         id: sharepoint-upload-step
+        shell: bash
         run: |
           bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh \
             "${{ env.temp_dir }}/content/docx" \
-            "${{ env.FIRST_MP }}" \
-            "${{ env.SHAREPOINT_TENANT_ID }}" \
-            "${{ env.AZURE_APP_ID }}" \
-            "${{ env.AZURE_ACCESS_TOKEN }}" \
+            "${{ env.ACCESS_TOKEN }}" \
+            "${{ env.DRIVE_ID }}" \
             "${{ github.event.inputs.aemy_callbacks }}" \
             "${{ github.event.inputs.aemy_context }}"
-        shell: bash
 
-      #        uses: ./.github/actions/upload-sharepoint
+        #        uses: ./.github/actions/upload-sharepoint
         #        with:
         #          aemy_callbacks: ${{ github.event.inputs.aemy_callbacks }}
         #          aemy_context: ${{ github.event.inputs.aemy_context }}
@@ -359,6 +379,7 @@ jobs:
           echo "Failed Files: ${{ env.UPLOAD_FAILED_FILES }}"
           echo "Message: ${{ env.UPLOAD_MESSAGE }}"
           echo "Failures: ${{ env.UPLOAD_FAILURES }}"
+          echo "Folder creation failures: ${{ env.UPLOAD_FOLDER_CREATION_FAILURES }}"
           
           progress="✅ Success count: ${{ env.UPLOAD_SUCCESSES }} ❌ Failed count: ${{ env.UPLOAD_FAILURES }} 🚨 Failed files: ${{ env.UPLOAD_FAILED_FILES }}"
           echo $progress
@@ -374,7 +395,7 @@ jobs:
       - name: Fail if upload fails
         if: ${{ env.UPLOAD_FAILURES > 0 }}
         run: |
-          message="Failed to upload ${{ env.UPLOAD_FAILURES }} files. Uploaded ${{ env.UPLOAD_SUCCESSES }} files successfully."
+          message="Failed to upload ${{ env.UPLOAD_FAILURES }} files. Uploaded ${{ env.UPLOAD_SUCCESSES }} files successfully. ${{ env.ACTION_URL }}"
           echo $message
           if [ -n "${{ env.error_callback_url }}" ]; then
             curl -H "x-api-key: ${{ env.callback_apikey }}" \
