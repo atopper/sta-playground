@@ -200,7 +200,7 @@ jobs:
             echo "DOMAIN=DOMAIN" >> $GITHUB_ENV
             echo "PATH=PATH" >> $GITHUB_ENV
           else
-            message="Could not determine Sharepoint mountpoint from teh fstab.yaml file."
+            message="Could not determine Sharepoint mountpoint from teh fstab.yaml file. Is '/' a Sharepoint mountpoint?"
             echo $message 
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
