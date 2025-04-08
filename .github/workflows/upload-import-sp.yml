@@ -255,7 +255,7 @@ jobs:
           chmod 755 "${{ env.temp_dir }}/import.zip"
           ls -hl "${{ env.temp_dir }}/import.zip"
           if ! file "${{ env.temp_dir }}/import.zip" | grep -q 'Zip archive data'; then
-            message = ": Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)? ${{ env.ACTION_URL }}"
+            message=": Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)? ${{ env.ACTION_URL }}"
             echo $message 
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
