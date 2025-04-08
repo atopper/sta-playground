@@ -105,10 +105,10 @@ jobs:
                 ${{ env.error_callback_url }}
             fi
             exit 1
-          fi
+          fi          
           
-          if [ -n "${{ env.action_url }}" ]; then
-            ACTION_URL="\n\nSee the Action URL to check the progress or the results of the workflow: ${{ env.action_url }}"
+          if [ -n "${{ github.event.inputs.action_url }}" ]; then
+            ACTION_URL="\n\nSee the Action URL to check the progress or the results of the workflow: ${{ github.event.inputs..action_url }}"
             echo "ACTION_URL=$ACTION_URL" >> $GITHUB_ENV
           fi
 
