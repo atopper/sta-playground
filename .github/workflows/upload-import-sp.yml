@@ -164,7 +164,6 @@ jobs:
           folders='{ ';
           foundFolders=false;
           while read line; do
-            echo "line: $line"
             if (echo "$line" | grep -q 'folders:'); then
               foundFolders=true
               echo Skipping...
@@ -180,7 +179,6 @@ jobs:
             fi
             name=$(echo "$line" | cut -f1 -d:)
             value=$(echo "$line" | cut -f2- -d: | cut -c2-)
-            echo "$name and $value"
             next="\"$name\": \"$value\""
             if ($foundFolders); then
               if [ "$folders" == "{ " ]; then
@@ -314,7 +312,29 @@ jobs:
         id: token
         run: |
           echo "${{ env.AZURE_CERTIFICATE_BASE64 }}" | base64 -d > cert.pem
+          if [ $? -ne 0 ]; then
+            message="AZURE_CERTIFICATE_BASE64 was not in the correct format. ${{ env.ACTION_URL }}"
+            echo $message
+            if [ -n "${{ env.error_callback_url }}" ]; then
+              curl -H "x-api-key: ${{ env.callback_apikey }}" \
+                -X POST \
+                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
+                ${{ env.error_callback_url }}
+            fi
+            exit 1
+          fi
           echo "${} env.AZURE_PRIVATE_KEY_BASE64 }}" | base64 -d > key.pem
+          if [ $? -ne 0 ]; then
+            message="AZURE_PRIVATE_KEY_BASE64 was not in the correct format. ${{ env.ACTION_URL }}"
+            echo $message
+            if [ -n "${{ env.error_callback_url }}" ]; then
+              curl -H "x-api-key: ${{ env.callback_apikey }}" \
+                -X POST \
+                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
+                ${{ env.error_callback_url }}
+            fi
+            exit 1
+          fi
 
           JWT_HEADER=$(echo -n '{"alg":"RS256","typ":"JWT"}' | openssl base64 -A | tr '+/' '-_' | tr -d '=')
           NOW=$(date +%s)
@@ -355,7 +375,8 @@ jobs:
             fi
             exit 1
           fi
-
+  
+          echo "ACCESS_TOKEN=$ACCESS_TOKEN"
           echo "ACCESS_TOKEN=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
 
       - name: Run SharePoint Upload Action
