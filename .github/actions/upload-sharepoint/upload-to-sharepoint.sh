@@ -8,7 +8,7 @@ CALLBACKS="$4"
 CONTEXT="$5"
 
 echo "Uploading from: $SOURCE_DIR"
-echo "Uploading to: $SHAREPOINT_SITE_URL"
+echo "Uploading to drive id: $DRIVE_ID"
 sudo apt-get install jq
 
 # Track uploads
@@ -50,8 +50,6 @@ upload_files() {
     if [ "$item" == "$local_dir" ]; then
       continue
     fi
-    echo "Processing item: $item"
-    echo "Local directory: $local_dir"
     relative_path="${item#"$local_dir"/}"
     echo "Relative path: $relative_path"
     sp_item_path="$sp_folder$relative_path"
@@ -59,7 +57,7 @@ upload_files() {
     echo "Next found is: $item (local_dir: $local_dir, sp_folder: $sp_folder, relative_path: $relative_path, sp_item_path: $sp_item_path)"
 
     if [ -d "$item" ]; then
-      # Create directory in SharePoint
+      # Create directory in SharePoint - ignoring results if it already exists
       echo "Creating directory: $relative_path in $sp_folder"
       create_folder "$parent_path" "$item"
     else
@@ -72,15 +70,15 @@ upload_files() {
       response_code=$(curl -X PUT \
         -H "Authorization: Bearer ${access_token}" \
         -H "Content-Type: application/octet-stream" \
-        --data-binary @"myfile.txt" \
+        --data-binary @"$local_dir/$item" \
         "https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/$sp_folder/$parent_dir/$item:/content")
 
       if [[ "${response_code}" -ge 400 ]]; then
         echo "Upload of /$sp_folder/$parent_dir/$item failed with HTTP status: ${response_code}"
         UPLOAD_FAILURES=$((UPLOAD_FAILURES + 1))
-
-        UPLOAD_FAILURES=$((UPLOAD_FAILURES + 1))
         UPLOAD_FAILED_FILES+="$parent_dir/$item,"
+      else
+        UPLOAD_SUCCESSES=$((UPLOAD_SUCCESSES + 1))
       fi
     fi
   done
