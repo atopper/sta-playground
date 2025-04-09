@@ -83,6 +83,7 @@ jobs:
           echo NPM Version:
           npm --version
           missing_vars=""
+          bad_format=""
       
           if [ -z "${{ env.AZURE_TENANT_ID }}" ]; then
             missing_vars+="AZURE_TENANT_ID "
@@ -92,9 +93,13 @@ jobs:
           fi
           if [ -z "${{ env.AZURE_CERTIFICATE_BASE64 }}" ]; then
            missing_vars+="AZURE_CERTIFICATE_BASE64 "
+          elif ! [[ "${{ env.AZURE_CERTIFICATE_BASE64 }}" =~ ^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$ ]]; then
+            bad_format="AZURE_PRIVATE_KEY_BASE64 "
           fi
           if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
            missing_vars+="AZURE_PRIVATE_KEY_BASE64 "
+          elif ! [[ "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" =~ ^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$ ]]; then
+            bad_format+="AZURE_PRIVATE_KEY_BASE64"
           fi
           if [ -z "${{ github.event.inputs.zip_url }}" ]; then
            missing_vars+="zip_url "
@@ -110,8 +115,20 @@ jobs:
                 ${{ env.error_callback_url }}
             fi
             exit 1
-          fi          
-          
+          fi
+          if [ -n "bad_format" ]; then
+            message="Error: The following variables are in the wrong format: $bad_format"
+            echo $message 
+            if [ -n "${{ env.error_callback_url }}" ]; then
+              curl -H "x-api-key: ${{ env.callback_apikey }}" \
+                -H "Content-Type: application/json" \
+                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
+                -X POST \
+                ${{ env.error_callback_url }}
+            fi
+            exit 1
+          fi
+ 
           if [ -n "${{ github.event.inputs.action_url }}" ]; then
             ACTION_URL="\n\nSee the Action URL to check the progress or the results of the workflow: ${{ github.event.inputs.action_url }}"
             echo "ACTION_URL=$ACTION_URL" >> $GITHUB_ENV
@@ -312,29 +329,7 @@ jobs:
         id: token
         run: |
           echo "${{ env.AZURE_CERTIFICATE_BASE64 }}" | base64 -d > cert.pem
-          if [ $? -ne 0 ]; then
-            message="AZURE_CERTIFICATE_BASE64 was not in the correct format. ${{ env.ACTION_URL }}"
-            echo $message
-            if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ env.callback_apikey }}" \
-                -X POST \
-                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-                ${{ env.error_callback_url }}
-            fi
-            exit 1
-          fi
-          echo "${} env.AZURE_PRIVATE_KEY_BASE64 }}" | base64 -d > key.pem
-          if [ $? -ne 0 ]; then
-            message="AZURE_PRIVATE_KEY_BASE64 was not in the correct format. ${{ env.ACTION_URL }}"
-            echo $message
-            if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ env.callback_apikey }}" \
-                -X POST \
-                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-                ${{ env.error_callback_url }}
-            fi
-            exit 1
-          fi
+          echo "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" | base64 -d > key.pem
 
           JWT_HEADER=$(echo -n '{"alg":"RS256","typ":"JWT"}' | openssl base64 -A | tr '+/' '-_' | tr -d '=')
           NOW=$(date +%s)
