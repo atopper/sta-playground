@@ -6,10 +6,12 @@ description: |
   The action is triggered by a workflow dispatch event with inputs for the zip URL and AEMY context.
 
 env:
-  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   # AZURE_CLIENT_ID might be considered the AZURE APP ID, but that meaning can be unclear.
-  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-  AZURE_CERT_BASE64: ${{ secrets.AZURE_CERT_BASE64 }}
+  AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  # Base-64 encoded cert or .pfx with private key
+  AZURE_CERTIFICATE_BASE64: ${{ secrets.AZURE_CERTIFICATE_BASE64 }}
+  # Base-64 encoded key to decode cert ((optional if using .pfx)
   AZURE_PRIVATE_KEY_BASE64: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
 on:
   workflow_dispatch:
@@ -26,6 +28,9 @@ on:
         required: true
       action_url:
         description: 'The URL of the repo to check the progress or the results of a workflow.'
+        required: false
+      rootMountPoint:
+        description: 'The Sharepoint mountpoint mapped to the root of the Sharepoint site.'
         required: false
 
 permissions:
@@ -67,10 +72,10 @@ jobs:
           fi
 
           # Ensure change from 'null' to '' is set in the environment.
-          #          echo "ok_callback_url=${ok_callback_url}" >> $GITHUB_ENV
-          #          echo "error_callback_url=${error_callback_url}" >> $GITHUB_ENV
-          #          echo "progress_callback_url=${progress_callback_url}" >> $GITHUB_ENV
-          #          echo "callback_apikey=${callback_apikey}" >> $GITHUB_ENV
+          echo "ok_callback_url=${ok_callback_url}" >> $GITHUB_ENV
+          echo "error_callback_url=${error_callback_url}" >> $GITHUB_ENV
+          echo "progress_callback_url=${progress_callback_url}" >> $GITHUB_ENV
+          echo "callback_apikey=${callback_apikey}" >> $GITHUB_ENV
 
       - name: Check inputs
         shell: bash
@@ -85,8 +90,8 @@ jobs:
           #          if [ -z "${{ env.AZURE_CLIENT_ID }}" ]; then
           #            missing_vars+="AZURE_CLIENT_ID "
           #          fi
-          #          if [ -z "${{ env.AZURE_CERT_BASE64 }}" ]; then
-          #           missing_vars+="AZURE_CERT_BASE64 "
+          #          if [ -z "${{ env.AZURE_CERTIFICATE_BASE64 }}" ]; then
+          #           missing_vars+="AZURE_CERTIFICATE_BASE64 "
           #          fi
           #          if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
           #           missing_vars+="AZURE_PRIVATE_KEY_BASE64 "
@@ -110,6 +115,10 @@ jobs:
           if [ -n "${{ github.event.inputs.action_url }}" ]; then
             ACTION_URL="\n\nSee the Action URL to check the progress or the results of the workflow: ${{ github.event.inputs.action_url }}"
             echo "ACTION_URL=$ACTION_URL" >> $GITHUB_ENV
+          fi
+          if [ -n "${{ github.event.inputs.rootMountPoint }}" ]; then
+            ROOT_MOUNT_POINT="${{ github.event.inputs.rootMountPoint }}"
+            echo "ROOT_MOUNT_POINT=$ROOT_MOUNT_POINT" >> $GITHUB_ENV
           fi
 
       - name: Create temp directory
@@ -140,11 +149,13 @@ jobs:
 
       - name: Read fstab file
         id: fstab_data
+        if: ${{ !env.ROOT_MOUNT_POINT }}
         uses: pietrobolcato/action-read-yaml@1.1.0
         with:
           config: ${{ github.workspace }}/fstab.yaml
 
       - name: Set up the mountpoints and folders
+        if: ${{ !env.ROOT_MOUNT_POINT }}
         env:
           FSTAB_CONTEXT: ${{ toJson(steps.fstab_data.outputs) }}
         run: |
@@ -179,7 +190,7 @@ jobs:
               fi
             else
               if [ "$name" == "/" ]; then
-                echo "FIRST_MP=$value" >> $GITHUB_ENV
+                echo "ROOT_MOUNT_POINT=$value" >> $GITHUB_ENV
               fi
               if [ "$mountpoints" == "{ " ]; then
                 mountpoints+="$next"
@@ -191,15 +202,15 @@ jobs:
 
           mountpoints+=' }'
           folders+=' }'
-          echo "mountpoint: $mountpoints"
-          echo "folder: $folders"
+          echo "Mount Point: $mountpoints"
+          echo "Folder: $folders"
           echo "mountpoints=$mountpoints" >> $GITHUB_ENV
           echo "folders=$folders" >> $GITHUB_ENV
 
-      - name: Parse Mountpoint
+      - name: Parse Mount Point
         run: |
-          echo Parsing ${{ env.FIRST_MP }}
-          if [[ "${{ env.FIRST_MP }}" =~ ^https://([a-zA-Z0-9.-]+)/(:f:/r)?(/sites/[a-zA-Z0-9_-]+) ]]; then
+          echo Parsing ${{ env.ROOT_MOUNT_POINT }}
+          if [[ "${{ env.ROOT_MOUNT_POINT }}" =~ ^https://([a-zA-Z0-9.-]+)/(:f:/r)?(/sites/[a-zA-Z0-9_-]+) ]]; then
             SP_DOMAIN="${BASH_REMATCH[1]}"
             SP_PATH="${BASH_REMATCH[3]}"
             echo "Domain: $SP_DOMAIN"
@@ -208,13 +219,13 @@ jobs:
             echo "SP_DOMAIN=$SP_DOMAIN" >> $GITHUB_ENV
             echo "SP_PATH=$SP_PATH" >> $GITHUB_ENV
           else
-            message="Could not determine Sharepoint mountpoint from teh fstab.yaml file. Is '/' a Sharepoint mountpoint? ${{ env.ACTION_URL }}"
+            message="Could not determine Sharepoint mountpoint from the fstab.yaml file (or the mount point parameter). Is '/' a Sharepoint mountpoint? ${{ env.ACTION_URL }}"
             echo $message 
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                -H "Content-Type: application/json" \
                -X POST \
-               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Failed to download zip...\" }}" \
+               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
                ${{ env.error_callback_url }}
             fi
             exit 1
@@ -299,15 +310,10 @@ jobs:
              ${{ env.progress_callback_url }}
           fi
 
-      - name: Fetch site and domain id
-        run: |
-          SITE_INFO=$(curl -s -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-            "https://graph.microsoft.com/v1.0/sites/adobe.sharepoint.com:/sites/HelixProjects")
-
       - name: Create AZURE Access Token
         id: token
         run: |
-          echo "${{ env.AZURE_CERT_BASE64 }}" | base64 -d > cert.pem
+          echo "${{ env.AZURE_CERTIFICATE_BASE64 }}" | base64 -d > cert.pem
           echo "${} env.AZURE_PRIVATE_KEY_BASE64 }}" | base64 -d > key.pem
 
           JWT_HEADER=$(echo -n '{"alg":"RS256","typ":"JWT"}' | openssl base64 -A | tr '+/' '-_' | tr -d '=')
@@ -363,16 +369,6 @@ jobs:
             "${{ github.event.inputs.aemy_callbacks }}" \
             "${{ github.event.inputs.aemy_context }}"
 
-        #        uses: ./.github/actions/upload-sharepoint
-        #        with:
-        #          aemy_callbacks: ${{ github.event.inputs.aemy_callbacks }}
-        #          aemy_context: ${{ github.event.inputs.aemy_context }}
-        #          upload_source: ${{ env.temp_dir }}/content/docx
-        #          upload_target: ${{ env.FIRST_MP }}
-        #          sharepoint_client_id: ${{ env.SHAREPOINT_CLIENT_ID }}
-        #          sharepoint_tenant_id: ${{ env.SHAREPOINT_TENANT_ID }}
-        #          sharepoint_client_secret: ${{ env.SHAREPOINT_CLIENT_SECRET }}
-
       - name: Analyze upload results
         run: |
           echo "Successes: ${{ env.UPLOAD_SUCCESSES }}"
@@ -380,9 +376,7 @@ jobs:
           echo "Message: ${{ env.UPLOAD_MESSAGE }}"
           echo "Failures: ${{ env.UPLOAD_FAILURES }}"
           echo "Folder creation failures: ${{ env.UPLOAD_FOLDER_CREATION_FAILURES }}"
-          
           progress="✅ Success count: ${{ env.UPLOAD_SUCCESSES }} ❌ Failed count: ${{ env.UPLOAD_FAILURES }} 🚨 Failed files: ${{ env.UPLOAD_FAILED_FILES }}"
-          echo $progress
           
           if [ -n "${{ env.progress_callback_url }}" ]; then
             curl -H "x-api-key: ${{ env.callback_apikey }}" \
