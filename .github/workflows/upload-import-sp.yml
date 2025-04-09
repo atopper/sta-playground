@@ -84,22 +84,22 @@ jobs:
           npm --version
           missing_vars=""
       
-          #          if [ -z "${{ env.AZURE_TENANT_ID }}" ]; then
-          #            missing_vars+="AZURE_TENANT_ID "
-          #          fi
-          #          if [ -z "${{ env.AZURE_CLIENT_ID }}" ]; then
-          #            missing_vars+="AZURE_CLIENT_ID "
-          #          fi
-          #          if [ -z "${{ env.AZURE_CERTIFICATE_BASE64 }}" ]; then
-          #           missing_vars+="AZURE_CERTIFICATE_BASE64 "
-          #          fi
-          #          if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
-          #           missing_vars+="AZURE_PRIVATE_KEY_BASE64 "
-          #          fi
+          if [ -z "${{ env.AZURE_TENANT_ID }}" ]; then
+            missing_vars+="AZURE_TENANT_ID "
+          fi
+          if [ -z "${{ env.AZURE_CLIENT_ID }}" ]; then
+            missing_vars+="AZURE_CLIENT_ID "
+          fi
+          if [ -z "${{ env.AZURE_CERTIFICATE_BASE64 }}" ]; then
+           missing_vars+="AZURE_CERTIFICATE_BASE64 "
+          fi
+          if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
+           missing_vars+="AZURE_PRIVATE_KEY_BASE64 "
+          fi
           if [ -z "${{ github.event.inputs.zip_url }}" ]; then
            missing_vars+="zip_url "
           fi
-          
+
           if [ -n "$missing_vars" ]; then
             message="Error: The following variables are not set: $missing_vars"
             if [ -n "${{ env.error_callback_url }}" ]; then
