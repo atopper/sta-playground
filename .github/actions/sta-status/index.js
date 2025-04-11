@@ -42,6 +42,7 @@ export async function run() {
   const agentName = core.getInput('agent_name');
 
   const name = `${agentName || 'sta'}-status`;
+  core.info(`${statusType} status message: ${message} for ${name}. ${callbacks}`);
 
   try {
     if (!context || !callbacks || !message || !statusType) {
