@@ -141,7 +141,7 @@ jobs:
           #                ${{ env.error_callback_url }}
           #            fi
           #            exit 1
-          #          fi
+          fi
 
       - name: Error 1
         if: ${{ env.errorMessage }}
