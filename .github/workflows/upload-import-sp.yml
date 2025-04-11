@@ -42,41 +42,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set up the callback URLs
-        run: |
-          if [ -z "${{ github.event.inputs.aemy_callbacks }}" ]; then
-            echo "Warning: Status callbacks will not be executed. Missing callback in the context."
-          else
-            callback_apikey=${{ fromJSON(github.event.inputs.aemy_callbacks).apikey }}
-            ok_callback_url=${{ fromJSON(github.event.inputs.aemy_callbacks).ok }}
-            error_callback_url=${{ fromJSON(github.event.inputs.aemy_callbacks).error }}
-            progress_callback_url=${{ fromJSON(github.event.inputs.aemy_callbacks).progress }}
-          
-            echo "ok_callback_url=${ok_callback_url}"
-            
-            if [ -z "${callback_apikey}" ] || [ "${callback_apikey}" == "null" ]; then
-              echo "Warning: Status callbacks will not be executed. Missing API key."
-              callback_apikey=''
-            fi
-            if [ -z "${ok_callback_url}" ] || [ "${ok_callback_url}" == "null" ]; then
-              echo "Warning: OK status callbacks will not be executed. Missing ok url."
-              ok_callback_url=''
-            fi
-            if [ -z "${error_callback_url}" ] || [ "${error_callback_url}" == "null" ]; then
-              echo "Warning: Error status callbacks will not be executed. Missing error url."
-              error_callback_url=''
-            fi
-            if [ -z "${progress_callback_url}" ] || [ "${progress_callback_url}" == "null" ]; then
-              echo "Warning: Progress status callbacks will not be executed. Missing progress url."
-              progress_callback_url=''
-            fi
-  
-            echo "ok_callback_url=${ok_callback_url}" >> $GITHUB_ENV
-            echo "error_callback_url=${error_callback_url}" >> $GITHUB_ENV
-            echo "progress_callback_url=${progress_callback_url}" >> $GITHUB_ENV
-            echo "callback_apikey=${callback_apikey}" >> $GITHUB_ENV
-          fi
-
       - name: Check inputs
         shell: bash
         run: |
@@ -118,29 +83,10 @@ jobs:
           if [ -n "$missing_vars" ]; then
             errorMessage="Error: The following variables are not set: $missing_vars "
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
-          #            echo $message
-          #            if [ -n "${{ env.error_callback_url }}" ]; then
-          #              curl -H "x-api-key: ${{ env.callback_apikey }}" \
-          #                -H "Content-Type: application/json" \
-          #                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-          #                -X POST \
-          #                ${{ env.error_callback_url }}
-          #            fi
-          #            exit 1
           fi
           if [ -n "bad_format" ]; then
             errorMessage+="Error: The following variables are in the wrong format: $bad_format"
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
-          #            message="Error: The following variables are in the wrong format: $bad_format"
-          #            echo $message 
-          #            if [ -n "${{ env.error_callback_url }}" ]; then
-          #              curl -H "x-api-key: ${{ env.callback_apikey }}" \
-          #                -H "Content-Type: application/json" \
-          #                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-          #                -X POST \
-          #                ${{ env.error_callback_url }}
-          #            fi
-          #            exit 1
           fi
 
       - name: Checkout
@@ -152,7 +98,7 @@ jobs:
           cd .github/actions/sta-status
           npm install
 
-      - name: Error 1
+      - name: Missing inputs error check
         if: ${{ env.errorMessage }}
         uses: ./.github/actions/sta-status
         with:
@@ -163,11 +109,10 @@ jobs:
           agent_name: upload-import-sp
 
       - name: Progress 1
-        if: ${{ !env.errorMessage }}
         uses: ./.github/actions/sta-status
         with:
-          context: ${{ env.aemy_context }}
-          callbacks: ${{ env.aemy_callbacks }}
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
           message: 'Inputs look good. Proceeding with the upload.'
           status_type: progress
           agent_name: upload-import-sp
@@ -175,22 +120,24 @@ jobs:
       - name: Create temp directory
         run: |
           echo "errorMessage=" >> $GITHUB_ENV
+
           # Create temp directory to download the zip and extract its contents into.
           temp_dir=$(mktemp -d)
           if [ $? -ne 0 ]; then
             message="Could not create a temporary folder for extraction. ${{ env.ACTION_URL }}"
-            echo $message 
-            if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ env.callback_apikey }}" \
-                -H "Content-Type: application/json" \
-                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-                -X POST \
-                ${{ env.error_callback_url }}
-            fi
-          
-            exit 1
+            echo "errorMessage=message" >> $GITHUB_ENV
           fi
           echo "temp_dir=${temp_dir}" >> $GITHUB_ENV
+
+      - name: Temp direction creation error check
+        if: ${{ env.errorMessage }}
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: ${{ env.errorMessage }}
+          status_type: error
+          agent_name: upload-import-sp
 
       - name: Install dependencies
         run: |
@@ -256,6 +203,8 @@ jobs:
 
       - name: Parse Mount Point
         run: |
+          echo "errorMessage=" >> $GITHUB_ENV
+
           echo Parsing ${{ env.ROOT_MOUNT_POINT }}
           if [[ "${{ env.ROOT_MOUNT_POINT }}" =~ ^https://([a-zA-Z0-9.-]+)/(:f:/r)?(/sites/[a-zA-Z0-9_-]+) ]]; then
             SP_DOMAIN="${BASH_REMATCH[1]}"
@@ -267,26 +216,27 @@ jobs:
             echo "SP_PATH=$SP_PATH" >> $GITHUB_ENV
           else
             message="Could not determine Sharepoint mountpoint from the fstab.yaml file (or the mount point parameter). Is '/' a Sharepoint mountpoint? ${{ env.ACTION_URL }}"
-            echo $message 
-            if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ env.callback_apikey }}" \
-                -H "Content-Type: application/json" \
-                -X POST \
-                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-                ${{ env.error_callback_url }}
-            fi
-            exit 1
+            echo "errorMessage=$message" >> $GITHUB_ENV
           fi
 
-      - name: Report download progress
-        run: |
-          if [ -n "${{ env.progress_callback_url }}" ]; then
-            curl -H "x-api-key: ${{ env.callback_apikey }}" \
-              -H "Content-Type: application/json" \
-              -X POST \
-              -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Downloading zip...\" }}" \
-              ${{ env.progress_callback_url }}
-          fi
+      - name: Temp direction creation error check
+        if: ${{ env.errorMessage }}
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: ${{ env.errorMessage }}
+          status_type: error
+          agent_name: upload-import-sp
+
+      - name: Progress 2
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: Downloading zip...
+          status_type: progress
+          agent_name: upload-import-sp
 
       - name: Download import zip file
         run: |
@@ -296,70 +246,73 @@ jobs:
 
       - name: Report download failure or extraction progress
         run: |
+          echo "errorMessage=" >> $GITHUB_ENV
+          
           if [ ! -f "${{ env.temp_dir }}/import.zip" ]; then
             message=" Import zip file not found. Check the output of the previous step. Exiting. ${{ env.ACTION_URL }}"
-            echo $message 
-            if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ env.callback_apikey }}" \
-                -H "Content-Type: application/json" \
-                -X POST \
-                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-                ${{ env.error_callback_url }}
+            echo "errorMessage=$message" >> $GITHUB_ENV
+          else
+            # Zip exists, check if it is a valid zip file.
+            chmod 755 "${{ env.temp_dir }}/import.zip"
+            ls -hl "${{ env.temp_dir }}/import.zip"
+            if ! [[ file "${{ env.temp_dir }}/import.zip" | grep -q 'Zip archive data' ]]; then
+              message=": Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)? ${{ env.ACTION_URL }}"
+              echo "errorMessage=$message" >> $GITHUB_ENV     
             fi
-            exit 1
-          fi
-          
-          # Zip exists, check if it is a valid zip file.
-          chmod 755 "${{ env.temp_dir }}/import.zip"
-          ls -hl "${{ env.temp_dir }}/import.zip"
-          if ! [[ file "${{ env.temp_dir }}/import.zip" | grep -q 'Zip archive data' ]]; then
-            message=": Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)? ${{ env.ACTION_URL }}"
-            echo $message 
-            if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ env.callback_apikey }}" \
-                -H "Content-Type: application/json" \
-                -X POST \
-                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-                ${{ env.error_callback_url }}
-            fi
-            exit 1        
-          fi
-          
-          # Zip is good.  Report that extraction is starting.
-          if [ -n "${{ env.progress_callback_url }}" ]; then
-            curl -H "x-api-key: ${{ env.callback_apikey }}" \
-              -H "Content-Type: application/json" \
-              -X POST \
-              -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Extracting zip...\" }}" \
-              ${{ env.progress_callback_url }}
-          fi
+
+      - name: Zip validation error check
+        if: ${{ env.errorMessage }}
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: ${{ env.errorMessage }}
+          status_type: error
+          agent_name: upload-import-sp
+
+      - name: Progress 3
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: Extracting zip...
+          status_type: progress
+          agent_name: upload-import-sp
 
       - name: Extract import zip contents
         run: |
+          echo "errorMessage=" >> $GITHUB_ENV
+
           unzip ${{ env.temp_dir }}/import.zip -d "${{ env.temp_dir }}/content"
           if [ $? -ne 0 ]; then
             message="Extraction of the Import zip failed. Please wait a few minutes and try again. ${{ env.ACTION_URL }}"
-            echo $message
-            if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ env.callback_apikey }}" \
-                -H "Content-Type: application/json" \
-                -X POST \
-                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-                ${{ env.error_callback_url }}
-            fi
-            exit 1;
+            echo "errorMessage=$message" >> $GITHUB_ENV   
           fi
-          if [ -n "${{ env.progress_callback_url }}" ]; then
-            curl -H "x-api-key: ${{ env.callback_apikey }}" \
-              -H "Content-Type: application/json" \
-              -X POST \
-              -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Zip extracted\" }}" \
-              ${{ env.progress_callback_url }}
-          fi
+
+      - name: Zip validation error check
+        if: ${{ env.errorMessage }}
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: ${{ env.errorMessage }}
+          status_type: error
+          agent_name: upload-import-sp
+
+      - name: Progress 4
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: Zip extracted. Getting upload authorization...
+          status_type: progress
+          agent_name: upload-import-sp
 
       - name: Create AZURE Access Token
         id: token
         run: |
+          echo "errorMessage=" >> $GITHUB_ENV
+
           echo "${{ env.AZURE_CERTIFICATE_BASE64 }}" | base64 -d > cert.pem
           echo "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" | base64 -d > key.pem
 
@@ -393,18 +346,30 @@ jobs:
 
           if [ "$ACCESS_TOKEN" == "null" ]; then
             message="Failed to get Azure access token: $RESPONSE. ${{ env.ACTION_URL }}"
-            echo $message 
-            if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ env.callback_apikey }}" \
-                -X POST \
-                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-                ${{ env.error_callback_url }}
-            fi
-            exit 1
+            echo "errorMessage=$message" >> $GITHUB_ENV
+          else
+            echo "ACCESS_TOKEN=$ACCESS_TOKEN"
+            echo "ACCESS_TOKEN=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
           fi
-  
-          echo "ACCESS_TOKEN=$ACCESS_TOKEN"
-          echo "ACCESS_TOKEN=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Access error check
+        if: ${{ env.errorMessage }}
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: ${{ env.errorMessage }}
+          status_type: error
+          agent_name: upload-import-sp
+
+      - name: Progress 5
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: Starting upload...
+          status_type: progress
+          agent_name: upload-import-sp
 
       - name: Run SharePoint Upload Action
         id: sharepoint-upload-step
@@ -419,44 +384,46 @@ jobs:
 
       - name: Analyze upload results
         run: |
+          echo "errorMessage=" >> $GITHUB_ENV
+
           echo "Successes: ${{ env.UPLOAD_SUCCESSES }}"
           echo "Failed Files: ${{ env.UPLOAD_FAILED_FILES }}"
           echo "Message: ${{ env.UPLOAD_MESSAGE }}"
           echo "Failures: ${{ env.UPLOAD_FAILURES }}"
           echo "Folder creation failures: ${{ env.UPLOAD_FOLDER_CREATION_FAILURES }}"
-          progress="✅ Success count: ${{ env.UPLOAD_SUCCESSES }} ❌ Failed count: ${{ env.UPLOAD_FAILURES }} 🚨 Failed files: ${{ env.UPLOAD_FAILED_FILES }}"
           
-          if [ -n "${{ env.progress_callback_url }}" ]; then
-            curl -H "x-api-key: ${{ env.callback_apikey }}" \
-              -H "Content-Type: application/json" \
-              -X POST \
-              -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$progress\" }}" \
-              ${{ env.progress_callback_url }}
+          if [ "${{ env.UPLOAD_FAILURES }}" -gt 0 ]; then
+            message="Failed to upload ${{ env.UPLOAD_FAILURES }} files. Uploaded ${{ env.UPLOAD_SUCCESSES }} files successfully. ${{ env.ACTION_URL }}"
+            echo "errorMessage=$message" >> $GITHUB_ENV
           fi
 
-      - name: Fail if upload fails
-        if: ${{ env.UPLOAD_FAILURES > 0 }}
-        run: |
-          message="Failed to upload ${{ env.UPLOAD_FAILURES }} files. Uploaded ${{ env.UPLOAD_SUCCESSES }} files successfully. ${{ env.ACTION_URL }}"
-          echo $message
-          if [ -n "${{ env.error_callback_url }}" ]; then
-            curl -H "x-api-key: ${{ env.callback_apikey }}" \
-              -X POST \
-              -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-              ${{ env.error_callback_url }}
-          fi
-          exit 1
+      - name: Progress 5
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: "✅ Success count: ${{ env.UPLOAD_SUCCESSES }} ❌ Failed count: ${{ env.UPLOAD_FAILURES }} 🚨 Failed files: ${{ env.UPLOAD_FAILED_FILES }}"
+          status_type: progress
+          agent_name: upload-import-sp
+
+      - name: Upload error check
+        if: ${{ env.errorMessage }}
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: ${{ env.errorMessage }}
+          status_type: error
+          agent_name: upload-import-sp
 
       - name: Report upload success
-        run: |
-          message="Upload succeeded. Uploaded ${{ env.UPLOAD_SUCCESSES }} files."
-          echo $message
-          if [ -n "${{ env.ok_callback_url }}" ]; then
-            curl -H "x-api-key: ${{ env.callback_apikey }}" \
-              -X POST \
-              -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": "$message"}' \
-              ${{ env.ok_callback_url }}
-          fi
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: Upload succeeded. Uploaded ${{ env.UPLOAD_SUCCESSES }} files.
+          status_type: error
+          agent_name: upload-import-sp
 
       - name: Clean up temporary files
         if: always()
