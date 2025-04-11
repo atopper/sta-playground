@@ -81,11 +81,11 @@ jobs:
           fi
 
           if [ -n "$missing_vars" ]; then
-            errorMessage="Error: The following variables are not set: $missing_vars "
+            errorMessage="The following variables are not set: $missing_vars  "
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
           if [ -n "$bad_format" ]; then
-            errorMessage+="Error: The following variables are in the wrong format: $bad_format"
+            errorMessage+="The following variables are in the wrong format: $bad_format"
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
 
@@ -105,7 +105,7 @@ jobs:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
           message: ${{ env.errorMessage }}
-          status_type: error
+          status_type: progress
           agent_name: upload-import-sp
 
       - name: Progress 1 - Setup
@@ -136,7 +136,7 @@ jobs:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
           message: ${{ env.errorMessage }}
-          status_type: error
+          status_type: progress
           agent_name: upload-import-sp
 
       - name: Install dependencies
@@ -226,7 +226,7 @@ jobs:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
           message: ${{ env.errorMessage }}
-          status_type: error
+          status_type: progress
           agent_name: upload-import-sp
 
       - name: Progress 2 - Downloading zip
@@ -267,7 +267,7 @@ jobs:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
           message: ${{ env.errorMessage }}
-          status_type: error
+          status_type: progress
           agent_name: upload-import-sp
 
       - name: Progress 3 - Extracting zip
@@ -296,7 +296,7 @@ jobs:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
           message: ${{ env.errorMessage }}
-          status_type: error
+          status_type: progress
           agent_name: upload-import-sp
 
       - name: Progress 4 - Getting upload authorization
@@ -359,7 +359,7 @@ jobs:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
           message: ${{ env.errorMessage }}
-          status_type: error
+          status_type: progress
           agent_name: upload-import-sp
 
       - name: Progress 5 - Uploading to SharePoint
@@ -413,7 +413,7 @@ jobs:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
           message: ${{ env.errorMessage }}
-          status_type: error
+          status_type: progress
           agent_name: upload-import-sp
 
       - name: Report upload success
