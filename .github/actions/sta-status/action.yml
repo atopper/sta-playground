@@ -1,0 +1,23 @@
+name: "Upload to Sharepoint"
+description: "Upload files to Sharepoint"
+author: "Experience Catalyst"
+inputs:
+  context:
+    description: "Context for the STA workflow"
+    required: true
+  callbacks:
+    description: "The callbacks to use to post the status"
+    required: true
+  message:
+    description: "The message to post"
+    required: true
+  status_type:
+    description: "The type of the status"
+    required: true
+    default: 'progress'
+  agent_name:
+    description: "The agent name"
+    required: false
+runs:
+  using: 'node16'
+  main: 'index.js'

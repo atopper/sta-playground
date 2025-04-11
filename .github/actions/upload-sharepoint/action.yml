@@ -2,36 +2,30 @@ name: "Upload to Sharepoint"
 description: "Upload files to Sharepoint"
 author: "Experience Catalyst"
 inputs:
+  ACCESS_TOKEN:
+    description: "Access token for Azure (SharePoint)."
+    required: true
+  DRIVE_ID:
+    description: "The SharePoint destination drive ID."
+    required: true
   aemy_callbacks:
     description: "The AEMY callback information."
     required: true
   aemy_context:
     description: "The AEMY context as a string."
     required: true
-  sharepoint_client_id:
-    description: "The SharePoint client id."
+  temp_dir:
+    description: "The folder holding the zip and its contents."
     required: true
-  sharepoint_tenant_id:
-    description: "The SharePoint tenant id."
-    required: true
-  sharepoint_client_secret:
-    description: "The SharePoint client secret."
-    required: true
-  upload_target:
-    description: "The SharePoint site URL."
-    required: true
-  upload_source:
-    description: "The folder containing the files to upload."
-    required: true
-outputs:
-  result:
-    description: "The results of the upload as a JSON string with status and message properties."
 runs:
   using: "composite"
   steps:
     - name: "Upload the files"
       run: |
-        bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh "${{ inputs.upload_source }}" "${{ inputs.upload_target }}" \
-          "${{ inputs.sharepoint_tenant_id }}" "${{ inputs.sharepoint_client_id }}" "${{ inputs.sharepoint_client_secret }}" \
-          "${{ inputs.aemy_callbacks }}" "${{ inputs.aemy_context }}"
+        bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh \
+          "${{ env.temp_dir }}/content/docx" \
+          "${{ env.ACCESS_TOKEN }}" \
+          "${{ env.DRIVE_ID }}" \
+          "${{ github.event.inputs.aemy_callbacks }}" \
+          "${{ github.event.inputs.aemy_context }}"
       shell: bash
