@@ -82,6 +82,16 @@ jobs:
         run: |
           echo NPM Version:
           npm --version
+          
+          if [ -n "${{ github.event.inputs.action_url }}" ]; then
+            ACTION_URL="\n\nSee the Action URL to check the progress or the results of the workflow: ${{ github.event.inputs.action_url }}"
+            echo "ACTION_URL=$ACTION_URL" >> $GITHUB_ENV
+          fi
+          if [ -n "${{ github.event.inputs.rootMountPoint }}" ]; then
+            ROOT_MOUNT_POINT="${{ github.event.inputs.rootMountPoint }}"
+            echo "ROOT_MOUNT_POINT=$ROOT_MOUNT_POINT" >> $GITHUB_ENV
+          fi
+          
           missing_vars=""
           bad_format=""
       
@@ -106,38 +116,52 @@ jobs:
           fi
 
           if [ -n "$missing_vars" ]; then
-            message="Error: The following variables are not set: $missing_vars"
-            echo $message
-            if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ env.callback_apikey }}" \
-                -H "Content-Type: application/json" \
-                -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"$message\" }}" \
-                -X POST \
-                ${{ env.error_callback_url }}
-            fi
-            exit 1
+            errorMessage="Error: The following variables are not set: $missing_vars "
+            echo "errorMessage=$errorMessage" >> $GITHUB_ENV
+          #            echo $message
+          #            if [ -n "${{ env.error_callback_url }}" ]; then
+          #              curl -H "x-api-key: ${{ env.callback_apikey }}" \
+          #                -H "Content-Type: application/json" \
+          #                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
+          #                -X POST \
+          #                ${{ env.error_callback_url }}
+          #            fi
+          #            exit 1
           fi
           if [ -n "bad_format" ]; then
-            message="Error: The following variables are in the wrong format: $bad_format"
-            echo $message 
-            if [ -n "${{ env.error_callback_url }}" ]; then
-              curl -H "x-api-key: ${{ env.callback_apikey }}" \
-                -H "Content-Type: application/json" \
-                -d "{\"context\": \"${{ github.event.inputs.aemy_context }}\", \"response\": { \"message\": \"$message\" }}" \
-                -X POST \
-                ${{ env.error_callback_url }}
-            fi
-            exit 1
-          fi
- 
-          if [ -n "${{ github.event.inputs.action_url }}" ]; then
-            ACTION_URL="\n\nSee the Action URL to check the progress or the results of the workflow: ${{ github.event.inputs.action_url }}"
-            echo "ACTION_URL=$ACTION_URL" >> $GITHUB_ENV
-          fi
-          if [ -n "${{ github.event.inputs.rootMountPoint }}" ]; then
-            ROOT_MOUNT_POINT="${{ github.event.inputs.rootMountPoint }}"
-            echo "ROOT_MOUNT_POINT=$ROOT_MOUNT_POINT" >> $GITHUB_ENV
-          fi
+            errorMessage+="Error: The following variables are in the wrong format: $bad_format"
+            echo "errorMessage=$errorMessage" >> $GITHUB_ENV
+          #            message="Error: The following variables are in the wrong format: $bad_format"
+          #            echo $message 
+          #            if [ -n "${{ env.error_callback_url }}" ]; then
+          #              curl -H "x-api-key: ${{ env.callback_apikey }}" \
+          #                -H "Content-Type: application/json" \
+          #                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
+          #                -X POST \
+          #                ${{ env.error_callback_url }}
+          #            fi
+          #            exit 1
+          #          fi
+
+      - name: Error 1
+        if: ${{ env.errorMessage }}
+        uses: ./.github/actions/say-hello
+        with:
+          context: ${{ env.aemy_context }}
+          callbacks: ${{ env.aemy_callbacks }}
+          message: ${{ env.errorMessage }}
+          status_type: error
+          agent_name: upload-import-sp
+
+      - name: Progress 1
+        if: ${{ !env.errorMessage }}
+        uses: ./.github/actions/say-hello
+        with:
+          context: ${{ env.aemy_context }}
+          callbacks: ${{ env.aemy_callbacks }}
+          message: 'Inputs look good. Proceeding with the upload.'
+          status_type: progress
+          agent_name: upload-import-sp
 
       - name: Create temp directory
         run: |
