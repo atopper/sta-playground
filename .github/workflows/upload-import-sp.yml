@@ -143,9 +143,12 @@ jobs:
           #            exit 1
           fi
 
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Error 1
         if: ${{ env.errorMessage }}
-        uses: ./.github/actions/sta-status
+        uses: ./.github/actions/say-hello
         with:
           context: ${{ env.aemy_context }}
           callbacks: ${{ env.aemy_callbacks }}
@@ -155,7 +158,7 @@ jobs:
 
       - name: Progress 1
         if: ${{ !env.errorMessage }}
-        uses: ./.github/actions/sta-status
+        uses: ./.github/actions/say-hello
         with:
           context: ${{ env.aemy_context }}
           callbacks: ${{ env.aemy_callbacks }}
@@ -185,9 +188,6 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get install -y unzip jq uuid-runtime openssl
-
-      - name: Checkout repo
-        uses: actions/checkout@v4
 
       - name: Read fstab file
         id: fstab_data
