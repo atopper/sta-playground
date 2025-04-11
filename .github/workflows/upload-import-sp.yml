@@ -259,6 +259,7 @@ jobs:
               message=": Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)? ${{ env.ACTION_URL }}"
               echo "errorMessage=$message" >> $GITHUB_ENV     
             fi
+          fi
 
       - name: Zip validation error check
         if: ${{ env.errorMessage != '' }}
