@@ -43,12 +43,12 @@ export async function run() {
 
   const name = `${agentName || 'sta'}-status`;
 
-  if (!context || !callbacks || !message || !statusType) {
-    core.setOutput('result', `Missing parameters in ${name} call.`);
-    return;
-  }
-
   try {
+    if (!context || !callbacks || !message || !statusType) {
+      core.info(`Missing parameters in ${name} call. Skipping status.`);
+      return;
+    }
+
     const coordinatorContext = JSON.parse(context);
     const coordinatorCallbacks = JSON.parse(callbacks);
 
@@ -59,13 +59,10 @@ export async function run() {
     //   context: coordinatorContext,
     // };
 
-    console.log(`${statusType} status message: ${message}`);
+    core.info(`${statusType} status message: ${message}`);
 
     if (!['ok', 'error', 'progress'].includes(statusType)) {
-      core.setOutput('result', JSON.stringify({
-        status: 'failure',
-        message: `Invalid status type ${statusType} in ${name}.`,
-      }));
+      core.info(`Invalid status type ${statusType} in ${name}.`);
       core.setFailed(`Invalid status type ${statusType} in ${name}.`);
       return;
     }
@@ -92,17 +89,18 @@ export async function run() {
 
     await sendCallback(url, body, coordinatorCallbacks.apiKey);
 
-    core.setOutput('result', JSON.stringify(`Status ${statusType}:${message} sent successfully in ${name} call.`));
-    if (statusType === 'error') {
-      process.exit(1);
-    }
+    core.info(`Status ${statusType}:${message} sent successfully in ${name} call.`);
   } catch (error) {
     const errorResult = {
       status: 'failure',
       message: `Failed to send status of type ${statusType} in ${name}: ${error.message}`,
     };
-    core.setOutput('result', JSON.stringify(errorResult));
+    core.info(`Error: ${JSON.stringify(errorResult)}`);
     core.setFailed(error);
+  } finally {
+    if (statusType === 'error') {
+      process.exit(1);
+    }
   }
 }
 
