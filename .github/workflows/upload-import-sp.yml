@@ -15,15 +15,15 @@ env:
   AZURE_PRIVATE_KEY_BASE64: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
 on:
   workflow_dispatch:
-    secrets:
-      aemy_callbacks:
-        description: 'The AEMY context as a string.'
-        required: true
     inputs:
       # Zip URL is only valid for 60 minutes.
       zip_url:
         description: 'The URL of the zip file to download.'
         required: true
+      aemy_callbacks:
+        description: 'The AEMY context as a string.'
+        required: true
+        type: password
       aemy_context:
         description: 'The AEMY context as a string.'
         required: true
