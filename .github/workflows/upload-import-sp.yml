@@ -146,7 +146,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up status action
         run: |
           pwd
           cd .github/actions/sta-status
@@ -156,8 +156,8 @@ jobs:
         if: ${{ env.errorMessage }}
         uses: ./.github/actions/sta-status
         with:
-          context: ${{ env.aemy_context }}
-          callbacks: ${{ env.aemy_callbacks }}
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
           message: ${{ env.errorMessage }}
           status_type: error
           agent_name: upload-import-sp
@@ -174,6 +174,7 @@ jobs:
 
       - name: Create temp directory
         run: |
+          echo "errorMessage=" >> $GITHUB_ENV
           # Create temp directory to download the zip and extract its contents into.
           temp_dir=$(mktemp -d)
           if [ $? -ne 0 ]; then
