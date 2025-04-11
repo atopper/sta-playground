@@ -62,8 +62,8 @@ export async function run() {
     // };
 
     if (!['ok', 'error', 'progress'].includes(statusType)) {
-      core.info(`Invalid status type ${statusType} in ${name}.`);
-      core.setFailed(`Invalid status type ${statusType} in ${name}.`);
+      core.error(`Invalid status type ${statusType} in ${name}.`);
+      // core.setFailed(`Invalid status type ${statusType} in ${name}.`);
       return;
     }
 
@@ -91,8 +91,8 @@ export async function run() {
 
     core.info(`Status ${statusType}:${message} sent successfully in ${name} call.`);
   } catch (error) {
-    core.info(`Error: Failed to send status of type ${statusType} in ${name}: ${error.message}`);
-    core.setFailed(error);
+    core.warning(`Error: Failed to send status of type ${statusType} in ${name}: ${error.message}`);
+    // core.setFailed(error);
   } finally {
     if (statusType === 'error') {
       process.exit(1);
