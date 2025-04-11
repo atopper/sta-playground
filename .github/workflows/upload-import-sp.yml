@@ -15,13 +15,14 @@ env:
   AZURE_PRIVATE_KEY_BASE64: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
 on:
   workflow_dispatch:
+    secrets:
+      aemy_callbacks:
+        description: 'The AEMY context as a string.'
+        required: true
     inputs:
       # Zip URL is only valid for 60 minutes.
       zip_url:
         description: 'The URL of the zip file to download.'
-        required: true
-      aemy_callbacks:
-        description: 'The AEMY context as a string.'
         required: true
       aemy_context:
         description: 'The AEMY context as a string.'
@@ -44,38 +45,37 @@ jobs:
       - name: Set up the callback URLs
         run: |
           if [ -z "${{ github.event.inputs.aemy_callbacks }}" ]; then
-            echo "Warning: Status call backs will not be executed. Missing callback in the context."
+            echo "Warning: Status callbacks will not be executed. Missing callback in the context."
           else
             callback_apikey=${{ fromJSON(github.event.inputs.aemy_callbacks).apikey }}
             ok_callback_url=${{ fromJSON(github.event.inputs.aemy_callbacks).ok }}
             error_callback_url=${{ fromJSON(github.event.inputs.aemy_callbacks).error }}
             progress_callback_url=${{ fromJSON(github.event.inputs.aemy_callbacks).progress }}
-          fi
           
-          echo "ok_callback_url=${ok_callback_url}"
-          
-          if [ -z "${callback_apikey}" ] || [ "${callback_apikey}" == "null" ]; then
-            echo "Warning: Status call backs will not be executed. Missing api key."
-            callback_apikey=''
+            echo "ok_callback_url=${ok_callback_url}"
+            
+            if [ -z "${callback_apikey}" ] || [ "${callback_apikey}" == "null" ]; then
+              echo "Warning: Status callbacks will not be executed. Missing API key."
+              callback_apikey=''
+            fi
+            if [ -z "${ok_callback_url}" ] || [ "${ok_callback_url}" == "null" ]; then
+              echo "Warning: OK status callbacks will not be executed. Missing ok url."
+              ok_callback_url=''
+            fi
+            if [ -z "${error_callback_url}" ] || [ "${error_callback_url}" == "null" ]; then
+              echo "Warning: Error status callbacks will not be executed. Missing error url."
+              error_callback_url=''
+            fi
+            if [ -z "${progress_callback_url}" ] || [ "${progress_callback_url}" == "null" ]; then
+              echo "Warning: Progress status callbacks will not be executed. Missing progress url."
+              progress_callback_url=''
+            fi
+  
+            echo "ok_callback_url=${ok_callback_url}" >> $GITHUB_ENV
+            echo "error_callback_url=${error_callback_url}" >> $GITHUB_ENV
+            echo "progress_callback_url=${progress_callback_url}" >> $GITHUB_ENV
+            echo "callback_apikey=${callback_apikey}" >> $GITHUB_ENV
           fi
-          if [ -z "${ok_callback_url}" ] || [ "${ok_callback_url}" == "null" ]; then
-            echo "Warning: OK status call backs will not be executed. Missing ok url."
-            ok_callback_url=''
-          fi
-          if [ -z "${error_callback_url}" ] || [ "${error_callback_url}" == "null" ]; then
-            echo "Warning: Error status call backs will not be executed. Missing error url."
-            error_callback_url=''
-          fi
-          if [ -z "${progress_callback_url}" ] || [ "${progress_callback_url}" == "null" ]; then
-            echo "Warning: Progress status call backs will not be executed. Missing progress url."
-            progress_callback_url=''
-          fi
-
-          # Ensure change from 'null' to '' is set in the environment.
-          echo "ok_callback_url=${ok_callback_url}" >> $GITHUB_ENV
-          echo "error_callback_url=${error_callback_url}" >> $GITHUB_ENV
-          echo "progress_callback_url=${progress_callback_url}" >> $GITHUB_ENV
-          echo "callback_apikey=${callback_apikey}" >> $GITHUB_ENV
 
       - name: Check inputs
         shell: bash
@@ -92,21 +92,22 @@ jobs:
             missing_vars+="AZURE_CLIENT_ID "
           fi
           if [ -z "${{ env.AZURE_CERTIFICATE_BASE64 }}" ]; then
-           missing_vars+="AZURE_CERTIFICATE_BASE64 "
+            missing_vars+="AZURE_CERTIFICATE_BASE64 "
           elif ! [[ "${{ env.AZURE_CERTIFICATE_BASE64 }}" =~ ^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$ ]]; then
-            bad_format="AZURE_PRIVATE_KEY_BASE64 "
+            bad_format+="AZURE_PRIVATE_KEY_BASE64 "
           fi
           if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
-           missing_vars+="AZURE_PRIVATE_KEY_BASE64 "
+            missing_vars+="AZURE_PRIVATE_KEY_BASE64 "
           elif ! [[ "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" =~ ^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$ ]]; then
             bad_format+="AZURE_PRIVATE_KEY_BASE64"
           fi
           if [ -z "${{ github.event.inputs.zip_url }}" ]; then
-           missing_vars+="zip_url "
+            missing_vars+="zip_url "
           fi
 
           if [ -n "$missing_vars" ]; then
             message="Error: The following variables are not set: $missing_vars"
+            echo $message
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
                 -H "Content-Type: application/json" \
@@ -238,10 +239,10 @@ jobs:
             echo $message 
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
-               -H "Content-Type: application/json" \
-               -X POST \
-               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-               ${{ env.error_callback_url }}
+                -H "Content-Type: application/json" \
+                -X POST \
+                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
+                ${{ env.error_callback_url }}
             fi
             exit 1
           fi
@@ -250,17 +251,17 @@ jobs:
         run: |
           if [ -n "${{ env.progress_callback_url }}" ]; then
             curl -H "x-api-key: ${{ env.callback_apikey }}" \
-             -H "Content-Type: application/json" \
-             -X POST \
-             -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Downloading zip...\" }}" \
-             ${{ env.progress_callback_url }}
+              -H "Content-Type: application/json" \
+              -X POST \
+              -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Downloading zip...\" }}" \
+              ${{ env.progress_callback_url }}
           fi
 
       - name: Download import zip file
         run: |
           echo "Downloading the import zip to ${{ env.temp_dir }}..."
           curl -Lo "${{ env.temp_dir }}/import.zip" "${{ github.event.inputs.zip_url }}" 2>&1 \
-           || { echo "Import zip cannot be fetched. Please wait a few minutes and try again."; }
+            || { echo "Import zip cannot be fetched."; }
 
       - name: Report download failure or extraction progress
         run: |
@@ -269,10 +270,10 @@ jobs:
             echo $message 
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
-               -H "Content-Type: application/json" \
-               -X POST \
-               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-               ${{ env.error_callback_url }}
+                -H "Content-Type: application/json" \
+                -X POST \
+                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
+                ${{ env.error_callback_url }}
             fi
             exit 1
           fi
@@ -280,15 +281,15 @@ jobs:
           # Zip exists, check if it is a valid zip file.
           chmod 755 "${{ env.temp_dir }}/import.zip"
           ls -hl "${{ env.temp_dir }}/import.zip"
-          if ! file "${{ env.temp_dir }}/import.zip" | grep -q 'Zip archive data'; then
+          if ! [[ file "${{ env.temp_dir }}/import.zip" | grep -q 'Zip archive data' ]]; then
             message=": Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)? ${{ env.ACTION_URL }}"
             echo $message 
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
-               -H "Content-Type: application/json" \
-               -X POST \
-               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-               ${{ env.error_callback_url }}
+                -H "Content-Type: application/json" \
+                -X POST \
+                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
+                ${{ env.error_callback_url }}
             fi
             exit 1        
           fi
@@ -296,10 +297,10 @@ jobs:
           # Zip is good.  Report that extraction is starting.
           if [ -n "${{ env.progress_callback_url }}" ]; then
             curl -H "x-api-key: ${{ env.callback_apikey }}" \
-             -H "Content-Type: application/json" \
-             -X POST \
-             -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Extracting zip...\" }}" \
-             ${{ env.progress_callback_url }}
+              -H "Content-Type: application/json" \
+              -X POST \
+              -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Extracting zip...\" }}" \
+              ${{ env.progress_callback_url }}
           fi
 
       - name: Extract import zip contents
@@ -310,19 +311,19 @@ jobs:
             echo $message
             if [ -n "${{ env.error_callback_url }}" ]; then
               curl -H "x-api-key: ${{ env.callback_apikey }}" \
-               -H "Content-Type: application/json" \
-               -X POST \
-               -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
-               ${{ env.error_callback_url }}
+                -H "Content-Type: application/json" \
+                -X POST \
+                -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$message\" }}" \
+                ${{ env.error_callback_url }}
             fi
             exit 1;
           fi
           if [ -n "${{ env.progress_callback_url }}" ]; then
             curl -H "x-api-key: ${{ env.callback_apikey }}" \
-             -H "Content-Type: application/json" \
-             -X POST \
-             -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Zip extracted\" }}" \
-             ${{ env.progress_callback_url }}
+              -H "Content-Type: application/json" \
+              -X POST \
+              -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"Zip extracted\" }}" \
+              ${{ env.progress_callback_url }}
           fi
 
       - name: Create AZURE Access Token
@@ -335,7 +336,7 @@ jobs:
           NOW=$(date +%s)
           EXP=$((NOW + 3600))
           JWT_PAYLOAD=$(echo -n '{
-              "aud": "https://login.microsoftonline.com/'"${AZURE_TENANT_ID}"'/v2.0",
+             "aud": "https://login.microsoftonline.com/'"${AZURE_TENANT_ID}"'/v2.0",
               "iss": "'"${AZURE_CLIENT_ID}"'",
               "sub": "'"${AZURE_CLIENT_ID}"'",
               "jti": "'"$(uuidgen)"'",
@@ -396,10 +397,10 @@ jobs:
           
           if [ -n "${{ env.progress_callback_url }}" ]; then
             curl -H "x-api-key: ${{ env.callback_apikey }}" \
-             -H "Content-Type: application/json" \
-             -X POST \
-             -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$progress\" }}" \
-             ${{ env.progress_callback_url }}
+              -H "Content-Type: application/json" \
+              -X POST \
+              -d "{\"context\": \"${{ fromJSON(github.event.inputs.aemy_context) }}\", \"response\": { \"message\": \"$progress\" }}" \
+              ${{ env.progress_callback_url }}
           fi
 
       - name: Fail if upload fails
