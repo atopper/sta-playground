@@ -145,7 +145,7 @@ jobs:
 
       - name: Error 1
         if: ${{ env.errorMessage }}
-        uses: ./.github/actions/say-hello
+        uses: ./.github/actions/sta-status
         with:
           context: ${{ env.aemy_context }}
           callbacks: ${{ env.aemy_callbacks }}
@@ -155,7 +155,7 @@ jobs:
 
       - name: Progress 1
         if: ${{ !env.errorMessage }}
-        uses: ./.github/actions/say-hello
+        uses: ./.github/actions/sta-status
         with:
           context: ${{ env.aemy_context }}
           callbacks: ${{ env.aemy_callbacks }}
