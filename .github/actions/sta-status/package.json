@@ -13,7 +13,6 @@
   "license": "ISC",
   "description": "Send a post to report Upload status",
   "dependencies": {
-    "@actions/core": "^1.11.1",
-    "@adobe-aem-foundation/site-transfer-shared-coordinator": "1.0.0"
+    "@actions/core": "^1.11.1"
   }
 }
