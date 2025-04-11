@@ -30,7 +30,7 @@ const sendCallback = async (url, body, apiKey) => {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to send callback: ${response.statusText}`);
+    throw new Error(`Failed to send status: ${response.statusText}`);
   }
 };
 
@@ -42,7 +42,8 @@ export async function run() {
   const agentName = core.getInput('agent_name');
 
   const name = `${agentName || 'sta'}-status`;
-  core.info(`${statusType} status message: ${message} for ${name}. ${callbacks}`);
+
+  core.info(`"${statusType}" status message: ${message} for ${name}.`);
 
   try {
     if (!context || !callbacks || !message || !statusType) {
@@ -59,8 +60,6 @@ export async function run() {
     //   callbacks: coordinatorCallbacks,
     //   context: coordinatorContext,
     // };
-
-    core.info(`${statusType} status message: ${message}`);
 
     if (!['ok', 'error', 'progress'].includes(statusType)) {
       core.info(`Invalid status type ${statusType} in ${name}.`);
@@ -92,11 +91,7 @@ export async function run() {
 
     core.info(`Status ${statusType}:${message} sent successfully in ${name} call.`);
   } catch (error) {
-    const errorResult = {
-      status: 'failure',
-      message: `Failed to send status of type ${statusType} in ${name}: ${error.message}`,
-    };
-    core.info(`Error: ${JSON.stringify(errorResult)}`);
+    core.info(`Error: Failed to send status of type ${statusType} in ${name}: ${error.message}`);
     core.setFailed(error);
   } finally {
     if (statusType === 'error') {
