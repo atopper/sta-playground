@@ -146,6 +146,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        run: |
+          pwd
+          cd .github/actions/sta-status
+          npm install
+
       - name: Error 1
         if: ${{ env.errorMessage }}
         uses: ./.github/actions/sta-status
