@@ -84,7 +84,7 @@ jobs:
             errorMessage="Error: The following variables are not set: $missing_vars "
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
-          if [ -n "bad_format" ]; then
+          if [ -n "$bad_format" ]; then
             errorMessage+="Error: The following variables are in the wrong format: $bad_format"
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
@@ -99,7 +99,7 @@ jobs:
           npm install
 
       - name: Missing inputs error check
-        if: ${{ env.errorMessage }}
+        if: ${{ env.errorMessage != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -108,7 +108,7 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 1
+      - name: Progress 1 - Setup
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -130,7 +130,7 @@ jobs:
           echo "temp_dir=${temp_dir}" >> $GITHUB_ENV
 
       - name: Temp direction creation error check
-        if: ${{ env.errorMessage }}
+        if: ${{ env.errorMessage != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -219,8 +219,8 @@ jobs:
             echo "errorMessage=$message" >> $GITHUB_ENV
           fi
 
-      - name: Temp direction creation error check
-        if: ${{ env.errorMessage }}
+      - name: Mount point detection check
+        if: ${{ env.errorMessage != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -229,7 +229,7 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 2
+      - name: Progress 2 - Downloading zip
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -255,13 +255,13 @@ jobs:
             # Zip exists, check if it is a valid zip file.
             chmod 755 "${{ env.temp_dir }}/import.zip"
             ls -hl "${{ env.temp_dir }}/import.zip"
-            if ! [[ file "${{ env.temp_dir }}/import.zip" | grep -q 'Zip archive data' ]]; then
+            if ! [[ $(file "${{ env.temp_dir }}/import.zip") =~ 'Zip archive data' ]]; then
               message=": Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)? ${{ env.ACTION_URL }}"
               echo "errorMessage=$message" >> $GITHUB_ENV     
             fi
 
       - name: Zip validation error check
-        if: ${{ env.errorMessage }}
+        if: ${{ env.errorMessage != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -270,7 +270,7 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 3
+      - name: Progress 3 - Extracting zip
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -290,7 +290,7 @@ jobs:
           fi
 
       - name: Zip validation error check
-        if: ${{ env.errorMessage }}
+        if: ${{ env.errorMessage != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -299,7 +299,7 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 4
+      - name: Progress 4 - Getting upload authorization
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -308,7 +308,7 @@ jobs:
           status_type: progress
           agent_name: upload-import-sp
 
-      - name: Create AZURE Access Token
+      - name: Create Azure Access Token
         id: token
         run: |
           echo "errorMessage=" >> $GITHUB_ENV
@@ -320,9 +320,9 @@ jobs:
           NOW=$(date +%s)
           EXP=$((NOW + 3600))
           JWT_PAYLOAD=$(echo -n '{
-             "aud": "https://login.microsoftonline.com/'"${AZURE_TENANT_ID}"'/v2.0",
-              "iss": "'"${AZURE_CLIENT_ID}"'",
-              "sub": "'"${AZURE_CLIENT_ID}"'",
+              "aud": "https://login.microsoftonline.com/'"${} env.AZURE_TENANT_ID }}"'/v2.0",
+              "iss": "'"${{ env.AZURE_CLIENT_ID }}"'",
+              "sub": "'"${{ env.AZURE_CLIENT_ID }}"'",
               "jti": "'"$(uuidgen)"'",
               "nbf": '"${now}"',
               "exp": '"${exp}"'
@@ -353,7 +353,7 @@ jobs:
           fi
 
       - name: Access error check
-        if: ${{ env.errorMessage }}
+        if: ${{ env.errorMessage != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -362,7 +362,7 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 5
+      - name: Progress 5 - Uploading to SharePoint
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -397,7 +397,7 @@ jobs:
             echo "errorMessage=$message" >> $GITHUB_ENV
           fi
 
-      - name: Progress 5
+      - name: Progress 6 - Done upload
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -407,7 +407,7 @@ jobs:
           agent_name: upload-import-sp
 
       - name: Upload error check
-        if: ${{ env.errorMessage }}
+        if: ${{ env.errorMessage != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -422,7 +422,7 @@ jobs:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
           message: Upload succeeded. Uploaded ${{ env.UPLOAD_SUCCESSES }} files.
-          status_type: error
+          status_type: ok
           agent_name: upload-import-sp
 
       - name: Clean up temporary files
