@@ -11,29 +11,46 @@
  */
 
 import core from '@actions/core';
-// import { CallbackClient } from '@adobe-aem-foundation/site-transfer-shared-coordinator';
 
-const sendCallback = async (url, body, apiKey) => {
+function getStatusCallParameters(
+  context,
+  apiKey,
+  statusType,
+  message,
+) {
+  let body = JSON.stringify({
+    context,
+    response: {
+      message,
+    },
+  });
+
   const headers = new Headers();
   headers.set('x-api-key', apiKey);
 
-  if (body instanceof FormData) {
-    headers.delete('Content-Type');
+  if (statusType === 'ok') {
+    const formData = new FormData();
+    // add context to form data
+    const contextBlob = new Blob([JSON.stringify(context)], { type: 'application/json' });
+    formData.append('context', contextBlob, 'context.json');
+
+    // add message to form data
+    const responseBlob = new Blob([JSON.stringify({ message })], { type: 'application/json' });
+    formData.append('response', responseBlob, 'response.json');
+    body = formData;
   } else {
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers,
-    body,
-  });
+  return { body, headers };
+}
 
-  if (!response.ok) {
-    throw new Error(`Failed to send status: ${response.statusText}`);
-  }
-};
-
+/**
+ * Send a status, given the correct action parameters.
+ * If statusType === 'error', the process (Workflow) will exit
+ * regardless of success or failure of the POST.
+ * @returns {Promise<void>}
+ */
 export async function run() {
   const context = core.getInput('context');
   const callbacks = core.getInput('callbacks');
@@ -43,56 +60,41 @@ export async function run() {
 
   const name = `${agentName || 'sta'}-status`;
 
-  core.info(`"${statusType}" status message: ${message} for ${name}.`);
+  core.info(`"${statusType}" status message: "${message}" for ${name}.`);
+
+  if (!['ok', 'error', 'progress'].includes(statusType)) {
+    core.error(`Invalid status type "${statusType}" in ${name}.`);
+    return;
+  }
 
   try {
-    if (!context || !callbacks || !message || !statusType) {
-      core.info(`Missing parameters in ${name} call. Skipping status.`);
-      return;
-    }
-
-    const coordinatorContext = JSON.parse(context);
     const coordinatorCallbacks = JSON.parse(callbacks);
-
-    // const payload = {
-    //   function: name,
-    //   parameters: {},
-    //   callbacks: coordinatorCallbacks,
-    //   context: coordinatorContext,
-    // };
-
-    if (!['ok', 'error', 'progress'].includes(statusType)) {
-      core.error(`Invalid status type ${statusType} in ${name}.`);
-      // core.setFailed(`Invalid status type ${statusType} in ${name}.`);
+    if (!context || !callbacks || !message || !statusType || !coordinatorCallbacks?.apiKey) {
+      core.info(`Missing or misconfigured parameters in ${name} call. Skipping status call: "${message}".`);
       return;
     }
 
     const url = coordinatorCallbacks[statusType];
-    let body = JSON.stringify({
-      coordinatorContext,
-      response: {
-        message,
-      },
+    const { body, headers } = getStatusCallParameters(
+      JSON.parse(context),
+      coordinatorCallbacks.apiKey,
+      statusType,
+      message,
+    );
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body,
     });
 
-    if (statusType === 'ok') {
-      const formData = new FormData();
-      // add context to form data
-      const contextBlob = new Blob([JSON.stringify(coordinatorContext || {})], { type: 'application/json' });
-      formData.append('context', contextBlob, 'context.json');
-
-      // add message to form data
-      const responseBlob = new Blob([JSON.stringify({ message })], { type: 'application/json' });
-      formData.append('response', responseBlob, 'response.json');
-      body = formData;
+    if (!response.ok) {
+      core.warning(`Failed to send status: ${response.statusText}`);
+    } else {
+      core.info(`Status ${statusType}:${message} sent successfully in ${name} call.`);
     }
-
-    await sendCallback(url, body, coordinatorCallbacks.apiKey);
-
-    core.info(`Status ${statusType}:${message} sent successfully in ${name} call.`);
   } catch (error) {
     core.warning(`Error: Failed to send status of type ${statusType} in ${name}: ${error.message}`);
-    // core.setFailed(error);
   } finally {
     if (statusType === 'error') {
       process.exit(1);
@@ -100,4 +102,4 @@ export async function run() {
   }
 }
 
-run();
+await run();
