@@ -50,7 +50,7 @@ jobs:
           
           # Optional parameters
           if [ -n "${{ github.event.inputs.action_url }}" ]; then
-            ACTION_URL="\n\nSee the Action URL to check the progress or the results of the workflow: ${{ github.event.inputs.action_url }}"
+            ACTION_URL="JS_LFJS_LF🕵 See the Action URL to check the progress or the results of the workflow: ${{ github.event.inputs.action_url }}"
             echo "ACTION_URL=$ACTION_URL" >> $GITHUB_ENV
           fi
           if [ -n "${{ github.event.inputs.rootMountPoint }}" ]; then
@@ -63,28 +63,28 @@ jobs:
           bad_format=""
       
           if [ -z "${{ env.AZURE_TENANT_ID }}" ]; then
-            missing_vars+="\\n- AZURE_TENANT_ID "
+            missing_vars+="JS_LF- AZURE_TENANT_ID "
           fi
           if [ -z "${{ env.AZURE_CLIENT_ID }}" ]; then
-            missing_vars+="\\n- AZURE_CLIENT_ID "
+            missing_vars+="JS_LF- AZURE_CLIENT_ID "
           fi
           if [ -z "${{ env.AZURE_CERTIFICATE_BASE64 }}" ]; then
-            missing_vars+="\\n- AZURE_CERTIFICATE_BASE64 "
+            missing_vars+="JS_LF- AZURE_CERTIFICATE_BASE64 "
           elif ! [[ "${{ env.AZURE_CERTIFICATE_BASE64 }}" =~ ^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$ ]]; then
-            bad_format+="\\n- AZURE_PRIVATE_KEY_BASE64 "
+            bad_format+="JS_LF- AZURE_PRIVATE_KEY_BASE64 "
           fi
           if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
-            missing_vars+="\\n- AZURE_PRIVATE_KEY_BASE64 "
+            missing_vars+="JS_LF- AZURE_PRIVATE_KEY_BASE64 "
           elif ! [[ "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" =~ ^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$ ]]; then
-            bad_format+="\\n- AZURE_PRIVATE_KEY_BASE64"
+            bad_format+="JS_LF- AZURE_PRIVATE_KEY_BASE64"
           fi
 
           if [ -n "$missing_vars" ]; then
-            errorMessage="The following variables are not set in your GitHub repo: $missing_vars  "
+            errorMessage="❌ The following variables are not set in your GitHub repo: $missing_vars JS_LF"
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
           if [ -n "$bad_format" ]; then
-            errorMessage+="The following variables in your GitHub repo are in the wrong format: $bad_format"
+            errorMessage+="❌ The following variables in your GitHub repo are in the wrong format: $bad_format"
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
 
@@ -200,14 +200,17 @@ jobs:
       - name: Parse Mount Point
         run: |
           echo Parsing ${{ env.ROOT_MOUNT_POINT }}
-          if [[ "${{ env.ROOT_MOUNT_POINT }}" =~ ^https://([a-zA-Z0-9.-]+)/(:f:/r)?(/sites/[a-zA-Z0-9_-]+) ]]; then
-            SP_DOMAIN="${BASH_REMATCH[1]}"
-            SP_PATH="${BASH_REMATCH[3]}"
-            echo "Domain: $SP_DOMAIN"
-            echo "Path: $SP_PATH"
+          if [[ "${{ env.ROOT_MOUNT_POINT }}" =~ ^https://([a-zA-Z0-9.-]+)/(:f:/r)?(/sites/[a-zA-Z0-9_-]+)(/.*)?$ ]]; then
+            SP_HOST="${BASH_REMATCH[1]}"
+            SP_SITE="${BASH_REMATCH[3]}"
+            SP_FOLDER="${BASH_REMATCH[4]:1}" # Remove leading slash from the folder path
+            echo "Domain: $SP_HOST"
+            echo "Path: $SP_SITE"
+            echo "Folder: $SP_FOLDER"
 
-            echo "SP_DOMAIN=$SP_DOMAIN" >> $GITHUB_ENV
-            echo "SP_PATH=$SP_PATH" >> $GITHUB_ENV
+            echo "SP_HOST=$SP_HOST" >> $GITHUB_ENV
+            echo "SP_SITE=$SP_SITE" >> $GITHUB_ENV
+            echo "SP_FOLDER=$SP_FOLDER" >> $GITHUB_ENV
           else
             message="Could not determine SharePoint mountpoint from the fstab.yaml file (or the mount point parameter). Is '/' a SharePoint mountpoint? ${{ env.ACTION_URL }}"
             echo "errorMessage=$message" >> $GITHUB_ENV
@@ -268,7 +271,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Extracting zip... (Step 3 of 5).
+          message: Zip is downloaded. Now extracting its contents... (Step 3 of 5).
           status_type: progress
           agent_name: upload-import-sp
 
@@ -339,7 +342,7 @@ jobs:
           else
             echo "ACCESS_TOKEN=$ACCESS_TOKEN"
             echo "ACCESS_TOKEN=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
-          fi
+          fi        
 
       - name: Access error check
         if: ${{ env.errorMessage != '' }}
@@ -351,12 +354,39 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 5 - Uploading to SharePoint
+      - name: Progress 5 - Getting drive information
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Starting upload... (Step 5 of 5).
+          message: Getting drive id... (Step 5 of 6).
+          status_type: progress
+          agent_name: upload-import-sp
+
+      - name: Get site and drive id
+        uses: ./.github/actions/sta-sp-drive
+        with:
+          token: ${{ env.ACCESS_TOKEN }}
+          sp_host: ${{ env.SP_HOST }}
+          sp_site_path: ${{ env.SP_SITE }}
+          sp_folder_path: ${{ env.SP_FOLDER }}
+
+      - name: Drive id error check
+        if: ${{ steps.get-drive-info.outputs.drive_id = '' }}
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: Could not extract the drive id from the SharePoint site. Check the output of the previous step. ${{ env.ACTION_URL }}
+          status_type: error
+          agent_name: upload-import-sp
+
+      - name: Progress 6 - Uploading to SharePoint
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: Starting upload... (Step 6 of 6).
           status_type: progress
           agent_name: upload-import-sp
 
@@ -367,7 +397,7 @@ jobs:
           bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh \
             "${{ env.temp_dir }}/content/docx" \
             "${{ env.ACCESS_TOKEN }}" \
-            "${{ env.DRIVE_ID }}" \
+            "${{ steps.get-drive-info.outputs.drive_id }}" \
             "${{ github.event.inputs.aemy_callbacks }}" \
             "${{ github.event.inputs.aemy_context }}"
 
@@ -389,7 +419,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: "✅ Success count: ${{ env.UPLOAD_SUCCESSES }} ❌ Failed count: ${{ env.UPLOAD_FAILURES }} 🚨 Failed files: ${{ env.UPLOAD_FAILED_FILES }}"
+          message: "✅ Success count: ${{ env.UPLOAD_SUCCESSES }}JS_LF❌ Failed count: ${{ env.UPLOAD_FAILURES }}JS_LF🚨 Failed files: ${{ env.UPLOAD_FAILED_FILES }}"
           status_type: progress
           agent_name: upload-import-sp
 
