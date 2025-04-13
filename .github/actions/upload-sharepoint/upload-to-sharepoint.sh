@@ -79,6 +79,9 @@ upload_files() {
         UPLOAD_FAILED_FILES+="$parent_dir/$item,"
       else
         UPLOAD_SUCCESSES=$((UPLOAD_SUCCESSES + 1))
+        if (( UPLOAD_SUCCESSES % 100 == 0 )); then
+          echo "Successfully uploaded $UPLOAD_SUCCESSES files so far. $UPLOAD_FAILED_FILES failed."
+        fi
       fi
     fi
   done
