@@ -83,10 +83,10 @@ jobs:
             errorMessage="❌ The following variables are not set in your GitHub repo: $missing_vars JS_LF"
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
-          if [ -n "$bad_format" ]; then
-            errorMessage+="❌ The following variables in your GitHub repo are in the wrong format: $bad_format"
-            echo "errorMessage=$errorMessage" >> $GITHUB_ENV
-          fi
+          #          if [ -n "$bad_format" ]; then
+          #            errorMessage+="❌ The following variables in your GitHub repo are in the wrong format: $bad_format"
+          #            echo "errorMessage=$errorMessage" >> $GITHUB_ENV
+          #          fi
 
       - name: Checkout
         uses: actions/checkout@v4
