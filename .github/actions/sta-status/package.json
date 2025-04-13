@@ -1,8 +1,8 @@
 {
-  "name": "sta-status",
+  "name": "sta-status-callback-action",
   "version": "1.0.0",
   "type": "module",
-  "main": "index.js",
+  "main": "sta-status.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint .",
