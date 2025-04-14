@@ -19,4 +19,4 @@ outputs:
     description: "The access token"
 runs:
   using: 'node16'
-  main: 'sta-sp-drive.js'
+  main: 'sta-azure-helper.js'
