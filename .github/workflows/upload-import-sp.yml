@@ -9,9 +9,9 @@ env:
   AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   # AZURE_CLIENT_ID might be considered the AZURE APP ID, but that meaning can be unclear.
   AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-  # Base-64 encoded cert or .pfx with private key
-  AZURE_CERTIFICATE_BASE64: ${{ secrets.AZURE_CERTIFICATE_BASE64 }}
-  # Base-64 encoded key to decode cert ((optional if using .pfx)
+  # Base-64 thumbnail
+  AZURE_THUMBNAIL_BASE64: ${{ secrets.AZURE_THUMBNAIL_BASE64 }}
+  # Base-64 encoded key
   AZURE_PRIVATE_KEY_BASE64: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
 on:
   workflow_dispatch:
@@ -68,9 +68,9 @@ jobs:
           if [ -z "${{ env.AZURE_CLIENT_ID }}" ]; then
             missing_vars+="JS_LF- AZURE_CLIENT_ID "
           fi
-          if [ -z "${{ env.AZURE_CERTIFICATE_BASE64 }}" ]; then
-            missing_vars+="JS_LF- AZURE_CERTIFICATE_BASE64 "
-          elif ! [[ "${{ env.AZURE_CERTIFICATE_BASE64 }}" =~ ^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$ ]]; then
+          if [ -z "${{ env.AZURE_THUMBNAIL_BASE64 }}" ]; then
+            missing_vars+="JS_LF- AZURE_THUMBNAIL_BASE64 "
+          elif ! [[ "${{ env.AZURE_THUMBNAIL_BASE64 }}" =~ ^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$ ]]; then
             bad_format+="JS_LF- AZURE_PRIVATE_KEY_BASE64 "
           fi
           if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
@@ -83,17 +83,21 @@ jobs:
             errorMessage="❌ The following variables are not set in your GitHub repo: $missing_vars JS_LF"
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
-          #          if [ -n "$bad_format" ]; then
-          #            errorMessage+="❌ The following variables in your GitHub repo are in the wrong format: $bad_format"
-          #            echo "errorMessage=$errorMessage" >> $GITHUB_ENV
-          #          fi
+          if [ -n "$bad_format" ]; then
+            errorMessage+="❌ The following variables in your GitHub repo are in the wrong format: $bad_format"
+            echo "errorMessage=$errorMessage" >> $GITHUB_ENV
+          fi
 
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up status action
+      - name: Set up actions
         run: |
           cd .github/actions/sta-status
+          npm install
+          cd ../../.github/actions/sta-sp-drive
+          npm install
+          cd ../../.github/actions/sta-azure-helper
           npm install
 
       - name: Missing inputs error check
@@ -111,7 +115,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Inputs look good. Proceeding with the upload. (Step 1 of 5).
+          message: Inputs look good. Now setting up the upload. (Step 1 of 5).
           status_type: progress
           agent_name: upload-import-sp
 
@@ -197,13 +201,31 @@ jobs:
           echo "mountpoints=$mountpoints" >> $GITHUB_ENV
           echo "folders=$folders" >> $GITHUB_ENV
 
+      - name: Check mountpoint destination
+        run: |
+          if [[ "${{ env.ROOT_MOUNT_POINT }}" != *"sharepoint"* ]]; then
+            message="The mount point $ROOT_MOUNT_POINT is not a SharePoint mount point. ${{ env.ACTION_URL }}"
+            echo $message
+            echo "errorMessage=$message" >> $GITHUB_ENV
+          fi
+
+      - name: Report if mountpoint is not SharePoint
+        if: ${{ env.errorMessage != '' }}
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: ${{ env.errorMessage }}
+          status_type: error
+          agent_name: upload-import-sp
+
       - name: Parse Mount Point
         run: |
           echo Parsing ${{ env.ROOT_MOUNT_POINT }}
           if [[ "${{ env.ROOT_MOUNT_POINT }}" =~ ^https://([a-zA-Z0-9.-]+)/(:f:/r)?(/sites/[a-zA-Z0-9_-]+)(/.*)?$ ]]; then
             SP_HOST="${BASH_REMATCH[1]}"
             SP_SITE="${BASH_REMATCH[3]}"
-            SP_FOLDER="${BASH_REMATCH[4]:1}" # Remove leading slash from the folder path
+            SP_FOLDER="${BASH_REMATCH[4]}"
             echo "Domain: $SP_HOST"
             echo "Path: $SP_SITE"
             echo "Folder: $SP_FOLDER"
@@ -231,7 +253,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Downloading zip... (Step 2 of 5).
+          message: Downloading Import zip... (Step 2 of 5).
           status_type: progress
           agent_name: upload-import-sp
 
@@ -271,7 +293,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Zip is downloaded. Now extracting its contents... (Step 3 of 5).
+          message: Import Zip is downloaded. Now extracting its contents... (Step 3 of 5).
           status_type: progress
           agent_name: upload-import-sp
 
@@ -303,54 +325,21 @@ jobs:
           agent_name: upload-import-sp
 
       - name: Create Azure Access Token
-        id: token
-        run: |
-          echo "${{ env.AZURE_CERTIFICATE_BASE64 }}" | base64 -d > cert.pem
-          echo "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" | base64 -d > key.pem
-
-          JWT_HEADER=$(echo -n '{"alg":"RS256","typ":"JWT"}' | openssl base64 -A | tr '+/' '-_' | tr -d '=')
-          NOW=$(date +%s)
-          EXP=$((NOW + 3600))
-          JWT_PAYLOAD=$(echo -n '{
-              "aud": "https://login.microsoftonline.com/'"${} env.AZURE_TENANT_ID }}"'/v2.0",
-              "iss": "'"${{ env.AZURE_CLIENT_ID }}"'",
-              "sub": "'"${{ env.AZURE_CLIENT_ID }}"'",
-              "jti": "'"$(uuidgen)"'",
-              "nbf": '"${now}"',
-              "exp": '"${exp}"'
-            }' | openssl base64 -e | tr -d '\n=' | tr '/+' '_-')
-
-          JWT_INPUT="${JWT_HEADER}.${JWT_PAYLOAD}"
-          JWT_SIGNATURE=$(echo -n "${JWT_INPUT}" | openssl dgst -sha256 -sign key.pem | openssl base64 -A | tr '+/' '-_' | tr -d '=')
-
-          CLIENT_ASSERTION="${JWT_INPUT}.${JWT_SIGNATURE}"
-
-          RESPONSE=$(curl -s -X POST \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "client_id=${AZURE_CLIENT_ID}" \
-            -d "scope=https://graph.microsoft.com/.default" \
-            -d "grant_type=client_credentials" \
-            -d "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
-            -d "client_assertion=${CLIENT_ASSERTION}" \
-            "https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token")
-
-          ACCESS_TOKEN=$(echo "$RESPONSE" | jq -r .access_token)
-
-          if [ "$ACCESS_TOKEN" == "null" ]; then
-            message="Failed to get Azure access token: $RESPONSE. ${{ env.ACTION_URL }}"
-            echo "errorMessage=$message" >> $GITHUB_ENV
-          else
-            echo "ACCESS_TOKEN=$ACCESS_TOKEN"
-            echo "ACCESS_TOKEN=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
-          fi        
+        uses: ./.github/actions/authenticate
+        id: azure-auth
+        with:
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          thumbnail: ${{ secrets.AZURE_THUMBPRINT }}
+          key: ${{ secrets.AZURE_PFX_BASE64 }}
 
       - name: Access error check
-        if: ${{ env.errorMessage != '' }}
+        if: ${{ steps.azure-auth.outputs.access_token == '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ env.errorMessage }}
+          message: Failed to get access token. See the output of the previous step. ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
@@ -359,14 +348,14 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Getting drive id... (Step 5 of 6).
+          message: SharePoint access granted. Now fetching drive id... (Step 5 of 6).
           status_type: progress
           agent_name: upload-import-sp
 
       - name: Get site and drive id
         uses: ./.github/actions/sta-sp-drive
         with:
-          token: ${{ env.ACCESS_TOKEN }}
+          token: ${{ steps.azure-auth.outputs.access_token }}
           sp_host: ${{ env.SP_HOST }}
           sp_site_path: ${{ env.SP_SITE }}
           sp_folder_path: ${{ env.SP_FOLDER }}
@@ -386,7 +375,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Starting upload... (Step 6 of 6).
+          message: Drive ID acquired. Now starting upload... (Step 6 of 6).
           status_type: progress
           agent_name: upload-import-sp
 
