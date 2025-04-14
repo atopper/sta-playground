@@ -95,8 +95,10 @@ jobs:
         run: |
           cd .github/actions/sta-status
           npm install
+          pwd
           cd ../../.github/actions/sta-sp-drive
           npm install
+          pwd
           cd ../../.github/actions/sta-azure-helper
           npm install
 
