@@ -12,7 +12,7 @@
 
 import core from '@actions/core';
 import fs from 'fs';
-import { execSync } from 'child_process';
+import forge from 'node-forge';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -59,53 +59,82 @@ export async function run() {
 
   core.info(`Getting data for "${tenantId} : ${clientId}".`);
 
-  const pfxPath = './temp.pfx';
-  const keyPath = './key.pem';
-  const certPath = './cert.pem';
-  try {
-    fs.writeFileSync(pfxPath, Buffer.from(base64key, 'base64'));
-    execSync(`openssl pkcs12 -in ${pfxPath} -out ${keyPath} -nocerts -nodes -passin pass:${password}`);
-    execSync(`openssl pkcs12 -in ${pfxPath} -out ${certPath} -clcerts -nokeys -passin pass:${password}`);
-  } catch (err) {
-    core.setFailed(`Failed to extract key from PFX: ${err}`);
-    process.exit(1);
-  }
+  // const pfxPath = './temp.pfx';
+  // const keyPath = './key.pem';
+  // const certPath = './cert.pem';
+  // try {
+  //   fs.writeFileSync(pfxPath, Buffer.from(base64key, 'base64'));
+  //   execSync(`openssl pkcs12 -in ${pfxPath} -out ${keyPath} -nocerts -nodes -passin pass:${password}`);
+  //   execSync(`openssl pkcs12 -in ${pfxPath} -out ${certPath} -clcerts -nokeys -passin pass:${password}`);
+  // } catch (err) {
+  //   core.setFailed(`Failed to extract key from PFX: ${err}`);
+  //   process.exit(1);
+  // }
 
   try {
+    // Decode the PFX
+    const pfxDer = forge.util.decode64(base64key);
+    const p12Asn1 = forge.asn1.fromDer(pfxDer);
+    const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, password);
+
+    // Extract private key
+    const keyBags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
+    const privateKey = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0]?.key;
+    if (!privateKey) {
+      throw new Error('No private key found in PFX.');
+    }
+    const privateKeyPem = forge.pki.privateKeyToPem(privateKey);
+
+    // const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
+    // const cert = certBags[forge.pki.oids.certBag]?.[0]?.cert;
+    // if (!cert) {
+    //   throw new Error(' No certificate found in PFX.');
+    // }
+    // const certificatePem = forge.pki.certificateToPem(cert);
+
+    // Create JWT
     const { header, payload } = createJWTHeaderAndPayload(thumbNail, tenantId, clientId);
     const encodedHeader = base64url(JSON.stringify(header));
     const encodedPayload = base64url(JSON.stringify(payload));
-    const dataToSign = `${encodedHeader}.${encodedPayload}`;
+    const unsignedToken = `${encodedHeader}.${encodedPayload}`;
 
-    const privateKey = fs.readFileSync(keyPath, 'utf8');
     const sign = crypto.createSign('RSA-SHA256');
-    sign.update(dataToSign);
-    const signature = sign.sign(privateKey, 'base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
+    sign.update(unsignedToken);
+    const signature = sign.sign(privateKey, 'base64url');
+    const clientAssertion = `${unsignedToken}.${signature}`;
 
-    const clientAssertion = `${dataToSign}.${signature}`;
+    const data = new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+      client_assertion: clientAssertion,
+      scope: 'https://graph.microsoft.com/.default',
+    }).toString();
+
     const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
-
-    const res = await fetch(tokenUrl, {
+    const options = {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: clientId,
-        scope: 'https://graph.microsoft.com/.default',
-        client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
-        client_assertion: clientAssertion,
-      }),
-    });
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(data),
+      },
+    };
 
-    const result = await res.json();
-    if (!res.ok) {
-      core.warning(`Failed to get token: ${JSON.stringify(result)}`);
-    } else {
-      core.setOutput('access_token', result.access_token);
-    }
+    const req = https.request(tokenEndpoint, options, (res) => {
+      let response = '';
+      res.on('data', (chunk) => response += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          const body = JSON.parse(response);
+          core.setOutput('access_token', body.access_token);
+        } else {
+          core.warning(`Failed to get token: ${res.statusCode} ${response}`);
+        }
+      });
+    });
+    req.on('error', (e) => core.warning(`Request failed: ${e.message}`));
+    req.write(data);
+    req.end();
   } catch (error) {
     core.warning(`Failed to extract access token: ${error.message}`);
   }
