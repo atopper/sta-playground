@@ -64,8 +64,8 @@ export async function run() {
   const certPath = './cert.pem';
   try {
     fs.writeFileSync(pfxPath, Buffer.from(base64key, 'base64'));
-    execSync(`openssl pkcs12 -in ${pfxPath} -out ${keyPath} -nocerts -nodes -passin pass:`);
-    execSync(`openssl pkcs12 -in ${pfxPath} -out ${certPath} -clcerts -nokeys -passin pass:`);
+    execSync(`openssl pkcs12 -in ${pfxPath} -out ${keyPath} -nocerts -nodes -passin pass:${password}`);
+    execSync(`openssl pkcs12 -in ${pfxPath} -out ${certPath} -clcerts -nokeys -passin pass:${password}`);
   } catch (err) {
     core.setFailed(`Failed to extract key from PFX: ${err}`);
     process.exit(1);
