@@ -51,8 +51,8 @@ function createJWTHeaderAndPayload(thumbprint, tenantId, clientId) {
  * @returns {Promise<void>}
  */
 export async function run() {
-  const tenantId = core.getInput('tenantId');
-  const clientId = core.getInput('clientId');
+  const tenantId = core.getInput('tenant_id');
+  const clientId = core.getInput('client_id');
   const thumbNail = core.getInput('thumbnail');
   const base64key = core.getInput('key');
 
