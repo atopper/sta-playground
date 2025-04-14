@@ -70,12 +70,12 @@ jobs:
           fi
           if [ -z "${{ env.AZURE_THUMBNAIL_BASE64 }}" ]; then
             missing_vars+="JS_LF- AZURE_THUMBNAIL_BASE64 "
-          elif ! [[ echo "${{ env.AZURE_THUMBNAIL_BASE64 }}" | base64 --decode > /dev/null 2>&1 ]]; then
+          elif ! echo "${{ env.AZURE_THUMBNAIL_BASE64 }}" | base64 --decode > /dev/null 2>&1; then
             bad_format+="JS_LF- AZURE_THUMBNAIL_BASE64 "
           fi
           if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
             missing_vars+="JS_LF- AZURE_PRIVATE_KEY_BASE64 "
-          elif ! [[ echo "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" | base64 --decode > /dev/null 2>&1 ]]; then
+          elif ! echo "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" | base64 --decode > /dev/null 2>&1; then
             bad_format+="JS_LF- AZURE_PRIVATE_KEY_BASE64"
           fi
 
