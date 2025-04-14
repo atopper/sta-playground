@@ -13,6 +13,8 @@ env:
   AZURE_THUMBNAIL_BASE64: ${{ secrets.AZURE_THUMBNAIL_BASE64 }}
   # Base-64 encoded key
   AZURE_PRIVATE_KEY_BASE64: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
+  # Encrypted key password
+  AZURE_KEY_PASSWORD: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
 on:
   workflow_dispatch:
     inputs:
@@ -332,6 +334,7 @@ jobs:
           client_id: ${{ env.AZURE_CLIENT_ID }}
           thumbnail: ${{ secrets.AZURE_THUMBPRINT }}
           key: ${{ secrets.AZURE_PFX_BASE64 }}
+          password: ${{ secrets.AZURE_PFX_PASSWORD }}
 
       - name: Access error check
         if: ${{ steps.azure-auth.outputs.access_token == '' }}
