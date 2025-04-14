@@ -55,6 +55,7 @@ export async function run() {
   const clientId = core.getInput('client_id');
   const thumbNail = core.getInput('thumbnail');
   const base64key = core.getInput('key');
+  const password = core.getInput('password');
 
   core.info(`Getting data for "${tenantId} : ${clientId}".`);
 
@@ -62,11 +63,15 @@ export async function run() {
   const keyPath = './key.pem';
   const certPath = './cert.pem';
   try {
-    // === WRITE PFX FILE ===
     fs.writeFileSync(pfxPath, Buffer.from(base64key, 'base64'));
     execSync(`openssl pkcs12 -in ${pfxPath} -out ${keyPath} -nocerts -nodes -passin pass:`);
     execSync(`openssl pkcs12 -in ${pfxPath} -out ${certPath} -clcerts -nokeys -passin pass:`);
+  } catch (err) {
+    core.setFailed(`Failed to extract key from PFX: ${err}`);
+    process.exit(1);
+  }
 
+  try {
     const { header, payload } = createJWTHeaderAndPayload(thumbNail, tenantId, clientId);
     const encodedHeader = base64url(JSON.stringify(header));
     const encodedPayload = base64url(JSON.stringify(payload));
@@ -75,7 +80,7 @@ export async function run() {
     const privateKey = fs.readFileSync(keyPath, 'utf8');
     const sign = crypto.createSign('RSA-SHA256');
     sign.update(dataToSign);
-    const signature = sign.sign(privateKey, 'base64')
+    const signature = sign.sign(privateKeyPem, 'base64')
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=+$/, '');
