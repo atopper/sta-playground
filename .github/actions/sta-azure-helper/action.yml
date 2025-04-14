@@ -19,7 +19,7 @@ inputs:
     required: true
 outputs:
   access_token:
-    description: "The access token"
+    description: "OAuth 2.0 access token from Azure AD"
 runs:
   using: 'node16'
   main: 'sta-azure-helper.js'
