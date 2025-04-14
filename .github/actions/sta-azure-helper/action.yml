@@ -2,10 +2,10 @@ name: "Get access token for Azure"
 description: "Get access token for Azure"
 author: "Experience Catalyst"
 inputs:
-  tenantId:
+  tenant_id:
     description: "The tenant id"
     required: true
-  clientId:
+  client_id:
     description: "The client id"
     required: true
   thumbnail:
