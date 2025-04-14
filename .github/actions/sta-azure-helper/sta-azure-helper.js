@@ -11,10 +11,8 @@
  */
 
 import core from '@actions/core';
-import fs from 'fs';
 import forge from 'node-forge';
 import crypto from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
 
 function base64url(str) {
   return Buffer.from(str)
@@ -38,7 +36,7 @@ function createJWTHeaderAndPayload(thumbprint, tenantId, clientId) {
     aud: tokenUrl,
     iss: clientId,
     sub: clientId,
-    jti: uuidv4(),
+    jti: crypto.randomUUID(),
     nbf: now,
     exp: now + 3600, // 60 minutes
   };
