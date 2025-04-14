@@ -325,7 +325,7 @@ jobs:
           agent_name: upload-import-sp
 
       - name: Create Azure Access Token
-        uses: ./.github/actions/authenticate
+        uses: ./.github/actions/sta-azure-helper
         id: azure-auth
         with:
           tenant_id: ${{ secrets.AZURE_TENANT_ID }}
