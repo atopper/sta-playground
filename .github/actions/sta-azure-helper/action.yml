@@ -1,0 +1,22 @@
+name: "Get access token for Azure"
+description: "Get access token for Azure"
+author: "Experience Catalyst"
+inputs:
+  tenantId:
+    description: "The tenant id"
+    required: true
+  clientId:
+    description: "The client id"
+    required: true
+  thumbnail:
+    description: "The Azure app's thumbnail"
+    required: true
+  key:
+    description: "Base64-encoded PFX content associated with the Azure app"
+    required: true
+outputs:
+  access_token:
+    description: "The access token"
+runs:
+  using: 'node16'
+  main: 'sta-sp-drive.js'
