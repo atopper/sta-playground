@@ -328,8 +328,8 @@ jobs:
         uses: ./.github/actions/sta-azure-helper
         id: azure-auth
         with:
-          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant_id: ${{ env.AZURE_TENANT_ID }}
+          client_id: ${{ env.AZURE_CLIENT_ID }}
           thumbnail: ${{ secrets.AZURE_THUMBPRINT }}
           key: ${{ secrets.AZURE_PFX_BASE64 }}
 
