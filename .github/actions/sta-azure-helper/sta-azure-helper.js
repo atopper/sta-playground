@@ -80,7 +80,7 @@ export async function run() {
     const privateKey = fs.readFileSync(keyPath, 'utf8');
     const sign = crypto.createSign('RSA-SHA256');
     sign.update(dataToSign);
-    const signature = sign.sign(privateKeyPem, 'base64')
+    const signature = sign.sign(privateKey, 'base64')
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=+$/, '');
