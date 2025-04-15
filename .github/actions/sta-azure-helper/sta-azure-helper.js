@@ -57,18 +57,6 @@ export async function run() {
 
   core.info(`Getting data for "${tenantId} : ${clientId}".`);
 
-  // const pfxPath = './temp.pfx';
-  // const keyPath = './key.pem';
-  // const certPath = './cert.pem';
-  // try {
-  //   fs.writeFileSync(pfxPath, Buffer.from(base64key, 'base64'));
-  //   execSync(`openssl pkcs12 -in ${pfxPath} -out ${keyPath} -nocerts -nodes -passin pass:${password}`);
-  //   execSync(`openssl pkcs12 -in ${pfxPath} -out ${certPath} -clcerts -nokeys -passin pass:${password}`);
-  // } catch (err) {
-  //   core.setFailed(`Failed to extract key from PFX: ${err}`);
-  //   process.exit(1);
-  // }
-
   try {
     // Decode the PFX
     const pfxDer = forge.util.decode64(base64key);
@@ -81,6 +69,8 @@ export async function run() {
     if (!privateKey) {
       throw new Error('No private key found in PFX.');
     }
+    core.info(`Private key extracted successfully and has length of ${privateKey.n.bitLength()} bits.`);
+    core.info(JSON.stringify(privateKey));
     const privateKeyPem = forge.pki.privateKeyToPem(privateKey);
 
     // const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
@@ -98,7 +88,7 @@ export async function run() {
 
     const sign = crypto.createSign('RSA-SHA256');
     sign.update(unsignedToken);
-    const signature = sign.sign(privateKey, 'base64url');
+    const signature = sign.sign(privateKeyPem, 'base64url');
     const clientAssertion = `${unsignedToken}.${signature}`;
 
     const data = new URLSearchParams({
@@ -110,29 +100,19 @@ export async function run() {
     }).toString();
 
     const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
-    const options = {
+    const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(data),
       },
-    };
-
-    const req = https.request(tokenEndpoint, options, (res) => {
-      let response = '';
-      res.on('data', (chunk) => response += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          const body = JSON.parse(response);
-          core.setOutput('access_token', body.access_token);
-        } else {
-          core.warning(`Failed to get token: ${res.statusCode} ${response}`);
-        }
-      });
+      body: data,
     });
-    req.on('error', (e) => core.warning(`Request failed: ${e.message}`));
-    req.write(data);
-    req.end();
+    if (!response.ok) {
+      core.warning(`Failed to fetch token: ${response.statusText}`);
+    } else {
+      const responseJson = await response.json();
+      core.setOutput('access_token', responseJson.access_token);
+    }
   } catch (error) {
     core.warning(`Failed to extract access token: ${error.message}`);
   }
