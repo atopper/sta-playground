@@ -94,13 +94,13 @@ export async function run() {
     const clientAssertion = `${unsignedToken}.${signature}`;
     core.info('Token has been signed.');
 
-    const data = {
+    const data = new URLSearchParams({
       grant_type: 'client_credentials',
       client_id: clientId,
       client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
       client_assertion: clientAssertion,
       scope: 'https://graph.microsoft.com/.default',
-    };
+    }).toString();
 
     const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
     const response = await fetch(tokenUrl, {
@@ -108,10 +108,10 @@ export async function run() {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify(data),
+      body: data,
     });
     if (!response.ok) {
-      core.warning(`Failed to fetch token: ${response.statusText}`);
+      core.warning(`Failed to fetch token: ${response.status} ${response.statusText}`);
     } else {
       const responseJson = await response.json();
       core.setOutput('access_token', responseJson.access_token);
