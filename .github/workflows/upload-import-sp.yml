@@ -10,7 +10,7 @@ env:
   # AZURE_CLIENT_ID might be considered the AZURE APP ID, but that meaning can be unclear.
   AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
   # Base-64 thumbnail
-  AZURE_THUMBNAIL_BASE64: ${{ secrets.AZURE_THUMBNAIL_BASE64 }}
+  AZURE_THUMBNAIL: ${{ secrets.AZURE_THUMBNAIL }}
   # Base-64 encoded key
   AZURE_PRIVATE_KEY_BASE64: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
   # Encrypted key password
@@ -70,10 +70,8 @@ jobs:
           if [ -z "${{ env.AZURE_CLIENT_ID }}" ]; then
             missing_vars+="JS_LF- AZURE_CLIENT_ID "
           fi
-          if [ -z "${{ env.AZURE_THUMBNAIL_BASE64 }}" ]; then
-            missing_vars+="JS_LF- AZURE_THUMBNAIL_BASE64 "
-          elif ! echo "${{ env.AZURE_THUMBNAIL_BASE64 }}" | base64 --decode > /dev/null 2>&1; then
-            bad_format+="JS_LF- AZURE_THUMBNAIL_BASE64 "
+          if [ -z "${{ env.AZURE_THUMBNAIL }}" ]; then
+            missing_vars+="JS_LF- AZURE_THUMBNAIL "
           fi
           if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
             missing_vars+="JS_LF- AZURE_PRIVATE_KEY_BASE64 "
@@ -332,7 +330,7 @@ jobs:
         with:
           tenant_id: ${{ env.AZURE_TENANT_ID }}
           client_id: ${{ env.AZURE_CLIENT_ID }}
-          thumbnail: ${{ secrets.AZURE_THUMBNAIL_BASE64 }}
+          thumbnail: ${{ secrets.AZURE_THUMBNAIL }}
           key: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
           password: ${{ secrets.AZURE_PFX_PASSWORD }}
 
