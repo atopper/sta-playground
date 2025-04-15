@@ -6,6 +6,8 @@ ACCESS_TOKEN="$2"
 DRIVE_ID="$3"
 CALLBACKS="$4"
 CONTEXT="$5"
+#  How many seconds to sleep between uploads to avoid throttling - default is 1.0 seconds.
+THROTTLE_SECONDS="${6:-1.0}"
 
 echo "Uploading from: $SOURCE_DIR"
 echo "Uploading to drive id: $DRIVE_ID"
@@ -42,6 +44,9 @@ create_folder() {
 
 # Function to upload files while preserving structure
 upload_files() {
+  # Throttle delay (milliseconds)
+  THROTTLE_SECONDS=1.5
+
   local local_dir="$1"
   local sp_folder="$2"
 
@@ -66,23 +71,33 @@ upload_files() {
       parent_dir=$(dirname "$relative_path")
       create_folder "$sp_folder" "$parent_dir"
 
-      # Upload file to SharePoint
-      response_code=$(curl -X PUT \
-        -H "Authorization: Bearer ${access_token}" \
-        -H "Content-Type: application/octet-stream" \
-        --data-binary @"$local_dir/$item" \
-        "https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/$sp_folder/$parent_dir/$item:/content")
+      while true; do
+        # Upload file to SharePoint
+        response_code=$(curl -X PUT \
+          -H "Authorization: Bearer ${access_token}" \
+          -H "Content-Type: application/octet-stream" \
+          --data-binary @"$local_dir/$item" \
+          "https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/$sp_folder/$parent_dir/$item:/content")
 
-      if [[ "${response_code}" -ge 400 ]]; then
-        echo "Upload of /$sp_folder/$parent_dir/$item failed with HTTP status: ${response_code}"
-        UPLOAD_FAILURES=$((UPLOAD_FAILURES + 1))
-        UPLOAD_FAILED_FILES+="$parent_dir/$item,"
-      else
-        UPLOAD_SUCCESSES=$((UPLOAD_SUCCESSES + 1))
-        if (( UPLOAD_SUCCESSES % 100 == 0 )); then
-          echo "Successfully uploaded $UPLOAD_SUCCESSES files so far. $UPLOAD_FAILED_FILES failed."
+        if [[ "$response" == "429" ]]; then
+          echo "Throttled on $file. Waiting before retrying..."
+          sleep 5
+        if [[ "${response_code}" -ge 400 ]]; then
+          echo "Upload of /$sp_folder/$parent_dir/$item failed with HTTP status: ${response_code}"
+          UPLOAD_FAILURES=$((UPLOAD_FAILURES + 1))
+          UPLOAD_FAILED_FILES+="$parent_dir/$item,"
+          break
+        else
+          UPLOAD_SUCCESSES=$((UPLOAD_SUCCESSES + 1))
+          if (( UPLOAD_SUCCESSES % 100 == 0 )); then
+            echo "Successfully uploaded $UPLOAD_SUCCESSES files so far. $UPLOAD_FAILED_FILES failed."
+          fi
+          break;
         fi
-      fi
+      done
+
+      # Sleep (to the closest second) to avoid throttling
+      sleep "$THROTTLE_SECONDS"
     fi
   done
 }
