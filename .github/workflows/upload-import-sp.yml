@@ -330,9 +330,9 @@ jobs:
         with:
           tenant_id: ${{ env.AZURE_TENANT_ID }}
           client_id: ${{ env.AZURE_CLIENT_ID }}
-          thumbnail: ${{ secrets.AZURE_THUMBNAIL }}
-          key: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
-          password: ${{ secrets.AZURE_PFX_PASSWORD }}
+          thumbnail: ${{ env.AZURE_THUMBNAIL }}
+          key: ${{ env.AZURE_PRIVATE_KEY_BASE64 }}
+          password: ${{ env.AZURE_PFX_PASSWORD }}
 
       - name: Access error check
         if: ${{ steps.azure-auth.outputs.access_token == '' }}
