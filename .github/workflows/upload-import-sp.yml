@@ -332,8 +332,8 @@ jobs:
         with:
           tenant_id: ${{ env.AZURE_TENANT_ID }}
           client_id: ${{ env.AZURE_CLIENT_ID }}
-          thumbnail: ${{ secrets.AZURE_THUMBPRINT }}
-          key: ${{ secrets.AZURE_PFX_BASE64 }}
+          thumbnail: ${{ secrets.AZURE_THUMBNAIL_BASE64 }}
+          key: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
           password: ${{ secrets.AZURE_PFX_PASSWORD }}
 
       - name: Access error check
