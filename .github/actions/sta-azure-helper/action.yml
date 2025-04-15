@@ -8,15 +8,19 @@ inputs:
   client_id:
     description: "The client id"
     required: true
-  thumbnail:
-    description: "The Azure app's thumbnail"
-    required: true
   key:
     description: "Base64-encoded PFX content associated with the Azure app"
     required: true
   password:
-    description: "Password to decrypt the PFX content"
+    description: "Password to decrypt the PFX content. Mandatory if the cert was created with a password."
+    required: false
+  thumbnail:
+    description: "The Azure app's certificate thumbnail"
     required: true
+  duration:
+    description: "Estimate of the number of seconds that the access_token should be valid for. Default is 3600 seconds."
+    default: "3600"
+    required: false
 outputs:
   access_token:
     description: "OAuth 2.0 access token from Azure AD"
