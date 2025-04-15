@@ -13,7 +13,7 @@ env:
   AZURE_THUMBNAIL: ${{ secrets.AZURE_THUMBNAIL }}
   # Base-64 encoded key
   AZURE_PRIVATE_KEY_BASE64: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
-  # Encrypted key password
+  # Encrypted cert key password
   AZURE_PFX_PASSWORD: ${{ secrets.AZURE_PFX_PASSWORD }}
 on:
   workflow_dispatch:
@@ -125,7 +125,7 @@ jobs:
           temp_dir=$(mktemp -d)
           if [ $? -ne 0 ]; then
             message="Could not create a temporary folder for extraction. ${{ env.ACTION_URL }}"
-            echo "errorMessage=message" >> $GITHUB_ENV
+            echo "errorMessage=$message" >> $GITHUB_ENV
           fi
           echo "temp_dir=${temp_dir}" >> $GITHUB_ENV
 
@@ -266,7 +266,7 @@ jobs:
       - name: Report download failure or extraction progress
         run: |
           if [ ! -f "${{ env.temp_dir }}/import.zip" ]; then
-            message=" Import zip file not found. Check the output of the previous step. Exiting. ${{ env.ACTION_URL }}"
+            message=" Import zip file not found. Check the output of the previous workflow step. Exiting. ${{ env.ACTION_URL }}"
             echo "errorMessage=$message" >> $GITHUB_ENV
           else
             # Zip exists, check if it is a valid zip file.
@@ -303,6 +303,21 @@ jobs:
           if [ $? -ne 0 ]; then
             message="Extraction of the Import zip failed. Please wait a few minutes and try again. ${{ env.ACTION_URL }}"
             echo "errorMessage=$message" >> $GITHUB_ENV   
+          else
+            file_count=$(find "${{ env.temp_dir }}/content" -type f | wc -l)
+            echo "Number of files extracted: $file_count"
+            echo "EXTRACTED_FILE_COUNT=$file_count" >> $GITHUB_ENV
+
+            # Estimate upload time, with a 1.5 second delay per file (with 1 minute safety net),
+            # in case we need the access_token to last longer.
+            upload_duration=(($file_count * 2 + 60))
+            if [ "$upload_duration" -lt 3600 ]; then
+              echo "Estimate upload duration: $upload_duration. Defaulting to 3600 seconds."
+              upload_duration=3600
+            else
+              echo "Total upload duration time should be around: $upload_duration seconds."
+            fi
+            echo "UPLOAD_DURATION=$upload_duration" >> $GITHUB_ENV
           fi
 
       - name: Zip validation error check
@@ -320,7 +335,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Zip extracted. Getting upload authorization... (Step 4 of 5).
+          message: Zip extracted with ${{ env.EXTRACTED_FILE_COUNT }} files. Getting upload authorization... (Step 4 of 5).
           status_type: progress
           agent_name: upload-import-sp
 
@@ -330,9 +345,10 @@ jobs:
         with:
           tenant_id: ${{ env.AZURE_TENANT_ID }}
           client_id: ${{ env.AZURE_CLIENT_ID }}
-          thumbnail: ${{ env.AZURE_THUMBNAIL }}
           key: ${{ env.AZURE_PRIVATE_KEY_BASE64 }}
           password: ${{ env.AZURE_PFX_PASSWORD }}
+          thumbnail: ${{ env.AZURE_THUMBNAIL }}
+          duration: $${ env.UPLOAD_DURATION }
 
       - name: Access error check
         if: ${{ steps.azure-auth.outputs.access_token == '' }}
@@ -340,7 +356,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Failed to get access token. See the output of the previous step. ${{ env.ACTION_URL }}
+          message: Failed to get access token. See the output of the previous workflow step. ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
@@ -367,7 +383,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Could not extract the drive id from the SharePoint site. Check the output of the previous step. ${{ env.ACTION_URL }}
+          message: Could not extract the drive id from the SharePoint site. Check the output of the previous workflow step. ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
@@ -380,13 +396,13 @@ jobs:
           status_type: progress
           agent_name: upload-import-sp
 
-      - name: Run SharePoint Upload Action
+      - name: Run SharePoint upload action
         id: sharepoint-upload-step
         shell: bash
         run: |
           bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh \
             "${{ env.temp_dir }}/content/docx" \
-            "${{ env.ACCESS_TOKEN }}" \
+            "${{ steps.azure-auth.outputs.access_token }}" \
             "${{ steps.get-drive-info.outputs.drive_id }}" \
             "${{ github.event.inputs.aemy_callbacks }}" \
             "${{ github.event.inputs.aemy_context }}"
