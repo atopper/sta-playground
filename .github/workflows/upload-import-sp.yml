@@ -348,7 +348,7 @@ jobs:
           key: ${{ env.AZURE_PRIVATE_KEY_BASE64 }}
           password: ${{ env.AZURE_PFX_PASSWORD }}
           thumbnail: ${{ env.AZURE_THUMBNAIL }}
-          duration: ${ env.UPLOAD_DURATION }
+          duration: ${{ env.UPLOAD_DURATION }}
 
       - name: Access error check
         if: ${{ steps.azure-auth.outputs.access_token == '' }}
