@@ -14,7 +14,7 @@ env:
   # Base-64 encoded key
   AZURE_PRIVATE_KEY_BASE64: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
   # Encrypted key password
-  AZURE_KEY_PASSWORD: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
+  AZURE_PFX_PASSWORD: ${{ secrets.AZURE_PFX_PASSWORD }}
 on:
   workflow_dispatch:
     inputs:
