@@ -310,7 +310,7 @@ jobs:
 
             # Estimate upload time, with a 1.5 second delay per file (with 1 minute safety net),
             # in case we need the access_token to last longer.
-            upload_duration=(($file_count * 2 + 60))
+            upload_duration=$((file_count * 2 + 60))
             if [ "$upload_duration" -lt 3600 ]; then
               echo "Estimate upload duration: $upload_duration. Defaulting to 3600 seconds."
               upload_duration=3600
