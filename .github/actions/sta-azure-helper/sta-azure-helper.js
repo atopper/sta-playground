@@ -22,7 +22,7 @@ function base64url(str) {
     .replace(/=+$/, '');
 }
 
-function createJWTHeaderAndPayload(thumbprint, tenantId, clientId) {
+function createJWTHeaderAndPayload(thumbprint, tenantId, clientId, duration) {
   const tokenUrl = `https://login.microsoftonline.com/${tenantId}/v2.0`;
   const now = Math.floor(Date.now() / 1000);
 
@@ -38,7 +38,7 @@ function createJWTHeaderAndPayload(thumbprint, tenantId, clientId) {
     sub: clientId,
     jti: crypto.randomUUID(),
     nbf: now,
-    exp: now + 3600, // 60 minutes
+    exp: now + duration, // 60 minutes
   };
 
   return { header, payload };
@@ -54,8 +54,9 @@ export async function run() {
   const thumbNail = core.getInput('thumbnail');
   const base64key = core.getInput('key');
   const password = core.getInput('password');
+  const duration = core.getInput('duration');
 
-  core.info(`Getting data for "${tenantId} : ${clientId}".`);
+  core.info(`Getting data for "${tenantId} : ${clientId}". Expecting ${duration} seconds.`);
 
   try {
     // Decode the PFX
@@ -82,7 +83,7 @@ export async function run() {
     // const certificatePem = forge.pki.certificateToPem(cert);
 
     // Create JWT
-    const { header, payload } = createJWTHeaderAndPayload(thumbNail, tenantId, clientId);
+    const { header, payload } = createJWTHeaderAndPayload(thumbNail, tenantId, clientId, duration);
     const encodedHeader = base64url(JSON.stringify(header));
     const encodedPayload = base64url(JSON.stringify(payload));
     const unsignedToken = `${encodedHeader}.${encodedPayload}`;
