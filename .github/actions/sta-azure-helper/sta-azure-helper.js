@@ -38,7 +38,7 @@ function createJWTHeaderAndPayload(thumbprint, tenantId, clientId, duration) {
     sub: clientId,
     jti: crypto.randomUUID(),
     nbf: now,
-    exp: now + duration, // 60 minutes
+    exp: now + parseInt(duration, 10), // 60 minutes
   };
 
   return { header, payload };
