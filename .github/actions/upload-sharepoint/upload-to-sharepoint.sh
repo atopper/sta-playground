@@ -82,7 +82,7 @@ upload_files() {
         if [[ "$response" == "429" ]]; then
           echo "Throttled on $file. Waiting before retrying..."
           sleep 5
-        if [[ "${response_code}" -ge 400 ]]; then
+        elif [[ "${response_code}" -ge 400 ]]; then
           echo "Upload of /$sp_folder/$parent_dir/$item failed with HTTP status: ${response_code}"
           UPLOAD_FAILURES=$((UPLOAD_FAILURES + 1))
           UPLOAD_FAILED_FILES+="$parent_dir/$item,"
