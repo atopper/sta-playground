@@ -40,7 +40,7 @@ function createJWTHeaderAndPayload(thumbprint, tenantId, clientId) {
     nbf: now,
     exp: now + 3600, // 60 minutes
   };
-a
+
   return { header, payload };
 }
 
@@ -71,6 +71,7 @@ export async function run() {
     }
     core.info(`Private key extracted successfully and has length of ${privateKey.n.bitLength()} bits.`);
     const privateKeyPem = forge.pki.privateKeyToPem(privateKey);
+    core.info(`Private key PEM extracted successfully and has length of ${privateKeyPem.length} bytes.`);
 
     // If the certificate is ever required:
     // const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
@@ -91,6 +92,7 @@ export async function run() {
     sign.update(unsignedToken);
     const signature = sign.sign(privateKeyPem, 'base64url');
     const clientAssertion = `${unsignedToken}.${signature}`;
+    core.info('Token has been signed.');
 
     const data = {
       grant_type: 'client_credentials',
