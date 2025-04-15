@@ -23,7 +23,7 @@ function base64url(str) {
 }
 
 function createJWTHeaderAndPayload(thumbprint, tenantId, clientId) {
-  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/v2.0`;
   const now = Math.floor(Date.now() / 1000);
 
   const header = {
@@ -40,7 +40,7 @@ function createJWTHeaderAndPayload(thumbprint, tenantId, clientId) {
     nbf: now,
     exp: now + 3600, // 60 minutes
   };
-
+a
   return { header, payload };
 }
 
@@ -61,7 +61,7 @@ export async function run() {
     // Decode the PFX
     const pfxDer = forge.util.decode64(base64key);
     const p12Asn1 = forge.asn1.fromDer(pfxDer);
-    const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, password);
+    const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, true, password);
 
     // Extract private key
     const keyBags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
@@ -70,9 +70,9 @@ export async function run() {
       throw new Error('No private key found in PFX.');
     }
     core.info(`Private key extracted successfully and has length of ${privateKey.n.bitLength()} bits.`);
-    core.info(JSON.stringify(privateKey));
     const privateKeyPem = forge.pki.privateKeyToPem(privateKey);
 
+    // If the certificate is ever required:
     // const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
     // const cert = certBags[forge.pki.oids.certBag]?.[0]?.cert;
     // if (!cert) {
@@ -86,18 +86,19 @@ export async function run() {
     const encodedPayload = base64url(JSON.stringify(payload));
     const unsignedToken = `${encodedHeader}.${encodedPayload}`;
 
+    // Sign token
     const sign = crypto.createSign('RSA-SHA256');
     sign.update(unsignedToken);
     const signature = sign.sign(privateKeyPem, 'base64url');
     const clientAssertion = `${unsignedToken}.${signature}`;
 
-    const data = new URLSearchParams({
+    const data = {
       grant_type: 'client_credentials',
       client_id: clientId,
       client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
       client_assertion: clientAssertion,
       scope: 'https://graph.microsoft.com/.default',
-    }).toString();
+    };
 
     const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
     const response = await fetch(tokenUrl, {
@@ -105,7 +106,7 @@ export async function run() {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: data,
+      body: JSON.stringify(data),
     });
     if (!response.ok) {
       core.warning(`Failed to fetch token: ${response.statusText}`);
