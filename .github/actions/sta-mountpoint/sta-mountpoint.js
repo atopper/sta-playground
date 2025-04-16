@@ -38,6 +38,8 @@ function getMountPointData(mountpointValue, type) {
     mountPointData.path = url.pathname.substring(1);
   }
 
+  core.info(`✅ mountPointData: ${JSON.stringify(mountPointData, undefined, 2)}`);
+
   return JSON.stringify(mountPointData);
 }
 
@@ -111,10 +113,9 @@ export async function run() {
 
     core.setOutput('mountpoint', mountpointValue);
     core.setOutput('type', type);
-    core.setOutput('data', getMountPointData(mountpointValue, type));
-
     core.info(`✅ mountpoint: ${mountpointValue}`);
     core.info(`✅ type: ${type}`);
+    core.setOutput('data', getMountPointData(mountpointValue, type));
   } catch (error) {
     if (error?.code === 'ENOENT') {
       core.warning('❌ Error: A mountpoint was not provided and the fstab.yml was not found');
