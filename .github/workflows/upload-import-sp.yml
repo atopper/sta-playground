@@ -9,8 +9,8 @@ env:
   AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   # AZURE_CLIENT_ID might be considered the AZURE APP ID, but that meaning can be unclear.
   AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-  # Base-64 thumbnail
-  AZURE_THUMBNAIL: ${{ secrets.AZURE_THUMBNAIL }}
+  # Base-64 thumbprint
+  AZURE_THUMBPRINT: ${{ secrets.AZURE_THUMBPRINT }}
   # Base-64 encoded key
   AZURE_PRIVATE_KEY_BASE64: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
   # Encrypted cert key password
@@ -70,8 +70,8 @@ jobs:
           if [ -z "${{ env.AZURE_CLIENT_ID }}" ]; then
             missing_vars+="JS_LF- AZURE_CLIENT_ID "
           fi
-          if [ -z "${{ env.AZURE_THUMBNAIL }}" ]; then
-            missing_vars+="JS_LF- AZURE_THUMBNAIL "
+          if [ -z "${{ env.AZURE_THUMBPRINT }}" ]; then
+            missing_vars+="JS_LF- AZURE_THUMBPRINT "
           fi
           if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
             missing_vars+="JS_LF- AZURE_PRIVATE_KEY_BASE64 "
@@ -143,108 +143,20 @@ jobs:
         run: |
           sudo apt-get install -y unzip jq uuid-runtime openssl
 
-      - name: Read fstab file
+      - name: Figure out mountpoint
         id: fstab_data
-        if: ${{ !env.ROOT_MOUNT_POINT }}
-        uses: pietrobolcato/action-read-yaml@1.1.0
+        uses: ./.github/actions/extract-mountpoint
         with:
-          config: ${{ github.workspace }}/fstab.yaml
+          mountpoint: ${{ env.ROOT_MOUNT_POINT }}
+          mountpoint_type: 'sharepoint'
 
-      - name: Set up the mountpoints and folders
-        if: ${{ !env.ROOT_MOUNT_POINT }}
-        env:
-          FSTAB_CONTEXT: ${{ toJson(steps.fstab_data.outputs) }}
-        run: |
-          echo "FSTAB_CONTEXT $FSTAB_CONTEXT"
-          mountpoints='{ ';
-          folders='{ ';
-          foundFolders=false;
-          while read line; do
-            if (echo "$line" | grep -q 'folders:'); then
-              foundFolders=true
-              echo Skipping...
-              continue;
-            fi
-            if (echo "$line" | grep -q 'mountpoints:'); then
-              echo Skipping...
-              continue;
-            fi
-            if [ -z "$line" ]; then
-              echo Skipping...
-              continue;
-            fi
-            name=$(echo "$line" | cut -f1 -d:)
-            value=$(echo "$line" | cut -f2- -d: | cut -c2-)
-            next="\"$name\": \"$value\""
-            if ($foundFolders); then
-              if [ "$folders" == "{ " ]; then
-                folders+="$next"
-              else
-                folders+=", $next"
-              fi
-            else
-              if [ "$name" == "/" ]; then
-                echo "ROOT_MOUNT_POINT=$value" >> $GITHUB_ENV
-              fi
-              if [ "$mountpoints" == "{ " ]; then
-                mountpoints+="$next"
-              else
-                mountpoints+=", $next"
-              fi
-            fi
-          done < "${{ github.workspace }}/fstab.yaml"
-
-          mountpoints+=' }'
-          folders+=' }'
-          echo "Mount Point: $mountpoints"
-          echo "Folder: $folders"
-          echo "mountpoints=$mountpoints" >> $GITHUB_ENV
-          echo "folders=$folders" >> $GITHUB_ENV
-
-      - name: Check mountpoint destination
-        run: |
-          if [[ "${{ env.ROOT_MOUNT_POINT }}" != *"sharepoint"* ]]; then
-            message="The mount point $ROOT_MOUNT_POINT is not a SharePoint mount point. ${{ env.ACTION_URL }}"
-            echo $message
-            echo "errorMessage=$message" >> $GITHUB_ENV
-          fi
-
-      - name: Report if mountpoint is not SharePoint
-        if: ${{ env.errorMessage != '' }}
+      - name: Report if mountpoint failed
+        if: ${{ steps.fstab_data.outputs.error_message != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ env.errorMessage }}
-          status_type: error
-          agent_name: upload-import-sp
-
-      - name: Parse Mount Point
-        run: |
-          echo Parsing ${{ env.ROOT_MOUNT_POINT }}
-          if [[ "${{ env.ROOT_MOUNT_POINT }}" =~ ^https://([a-zA-Z0-9.-]+)/(:f:/r)?(/sites/[a-zA-Z0-9_-]+)(/.*)?$ ]]; then
-            SP_HOST="${BASH_REMATCH[1]}"
-            SP_SITE="${BASH_REMATCH[3]}"
-            SP_FOLDER="${BASH_REMATCH[4]}"
-            echo "Domain: $SP_HOST"
-            echo "Path: $SP_SITE"
-            echo "Folder: $SP_FOLDER"
-
-            echo "SP_HOST=$SP_HOST" >> $GITHUB_ENV
-            echo "SP_SITE=$SP_SITE" >> $GITHUB_ENV
-            echo "SP_FOLDER=$SP_FOLDER" >> $GITHUB_ENV
-          else
-            message="Could not determine SharePoint mountpoint from the fstab.yaml file (or the mount point parameter). Is '/' a SharePoint mountpoint? ${{ env.ACTION_URL }}"
-            echo "errorMessage=$message" >> $GITHUB_ENV
-          fi
-
-      - name: Mount point detection check
-        if: ${{ env.errorMessage != '' }}
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ env.errorMessage }}
+          message: ${{ steps.fstab_data.outputs.error_message }} ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
@@ -308,9 +220,9 @@ jobs:
             echo "Number of files extracted: $file_count"
             echo "EXTRACTED_FILE_COUNT=$file_count" >> $GITHUB_ENV
 
-            # Estimate upload time, with a 1.5 second delay per file (with 1 minute safety net),
+            # Estimate upload time, including a 1 second delay per file (with 2 minute safety net),
             # in case we need the access_token to last longer.
-            upload_duration=$((file_count * 2 + 60))
+            upload_duration=$((file_count * 3 + 120))
             if [ "$upload_duration" -lt 3600 ]; then
               echo "Estimate upload duration: $upload_duration. Defaulting to 3600 seconds."
               upload_duration=3600
@@ -347,7 +259,7 @@ jobs:
           client_id: ${{ env.AZURE_CLIENT_ID }}
           key: ${{ env.AZURE_PRIVATE_KEY_BASE64 }}
           password: ${{ env.AZURE_PFX_PASSWORD }}
-          thumbnail: ${{ env.AZURE_THUMBNAIL }}
+          thumbprint: ${{ env.AZURE_THUMBPRINT }}
           duration: ${{ env.UPLOAD_DURATION }}
 
       - name: Access error check
@@ -373,9 +285,9 @@ jobs:
         uses: ./.github/actions/sta-sp-drive
         with:
           token: ${{ steps.azure-auth.outputs.access_token }}
-          sp_host: ${{ env.SP_HOST }}
-          sp_site_path: ${{ env.SP_SITE }}
-          sp_folder_path: ${{ env.SP_FOLDER }}
+          sp_host: ${{ fromJSON(steps.fstab_data.outputs.data).host }}
+          sp_site_path: ${{ fromJSON(steps.fstab_data.outputs.data).site }}
+          sp_folder_path: ${{ fromJSON(steps.fstab_data.outputs.data).path }}
 
       - name: Drive id error check
         if: ${{ steps.get-drive-info.outputs.drive_id == '' }}
