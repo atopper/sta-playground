@@ -28,15 +28,11 @@ function getMountPointData(mountpointValue, type) {
   };
 
   if (type === 'sharepoint') {
-    const regex = /^(https:\/\/[^/]+)(?:\/:f:\/r)?\/sites\/([^/]+)(\/.*)?$/;
-    const match = mountpointValue.match(regex);
-
-    if (match) {
-      let pathParts;
-      [mountPointData.site, ...pathParts] = url.pathname.split('/sites/')[1].split('/');
-      mountPointData.path = pathParts ? pathParts.join('/') : undefined;
-    } else {
-      throw new Error(`Invalid SharePoint mountpoint format: ${mountpointValue}`);
+    let pathParts;
+    [mountPointData.site, ...pathParts] = url.pathname.split('/sites/')[1].split('/');
+    mountPointData.path = pathParts ? pathParts.join('/') : undefined;
+    if (!mountPointData.host || !mountPointData.site || !mountPointData.path) {
+      throw new Error('Mount point URL is not in the expected format.');
     }
   } else if (type === 'crosswalk') {
     mountPointData.path = url.pathname.substring(1);
