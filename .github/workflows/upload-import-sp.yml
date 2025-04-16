@@ -95,6 +95,8 @@ jobs:
         run: |
           cd .github/actions/sta-status
           npm install
+          cd .github/actions/sta-mountpoint
+          npm install
           cd ../sta-sp-drive
           npm install
           cd ../sta-azure-helper
@@ -145,7 +147,7 @@ jobs:
 
       - name: Figure out mountpoint
         id: fstab_data
-        uses: ./.github/actions/extract-mountpoint
+        uses: ./.github/actions/sta-mountpoint
         with:
           mountpoint: ${{ env.ROOT_MOUNT_POINT }}
           mountpoint_type: 'sharepoint'
