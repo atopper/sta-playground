@@ -30,10 +30,15 @@ function getMountPointData(mountpointValue, type) {
   if (type === 'sharepoint') {
     let pathParts;
     const sitesParts = url.pathname.split('/sites/');
+    core.info(`✅ sitesParts: ${JSON.stringify(sitesParts, undefined, 2)}`);
+
     [mountPointData.site, ...pathParts] = sitesParts[1].split('/');
+    core.info(`✅ pathParts: ${JSON.stringify(pathParts, undefined, 2)}`);
+
     mountPointData.path = pathParts.join('/');
     if (sitesParts.length === 3) {
       mountPointData.path = `${mountPointData.path}/sites/${sitesParts[2]}`;
+      core.info(`✅ mountPointData.path: ${JSON.stringify(mountPointData.path, undefined, 2)}`);
     }
     const indexPastSite = url.pathname.indexOf(`/${mountPointData.site}/`) + `/${mountPointData.site}/`.length;
     [mountPointData.path] = url.pathname.substring(indexPastSite);
