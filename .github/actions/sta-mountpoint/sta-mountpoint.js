@@ -16,6 +16,48 @@ import { join } from 'path';
 import yaml from 'yaml';
 
 /**
+ * Extracts the mountpoint data from the given mountpoint value.
+ * @param mountpointValue
+ * @param type
+ * @returns {{}}
+ */
+function getMountPointData(mountpointValue, type) {
+  const url = new URL(mountpointValue);
+  const mountPointData = {
+    host: `${url.protocol}//${url.host}`,
+  };
+
+  if (type === 'sharepoint') {
+    const regex = /^(https:\/\/[^/]+)(?:\/:f:\/r)?\/sites\/([^/]+)(\/.*)?$/;
+    const match = mountpointValue.match(regex);
+
+    if (match) {
+      let pathParts;
+      [mountPointData.site, ...pathParts] = url.pathname.split('/sites/')[1].split('/');
+      mountPointData.path = pathParts ? pathParts.join('/') : undefined;
+    } else {
+      throw new Error(`Invalid SharePoint mountpoint format: ${mountpointValue}`);
+    }
+  } else if (type === 'crosswalk') {
+    mountPointData.path = url.pathname.substring(1);
+  }
+
+  return JSON.stringify(mountPointData);
+}
+
+/**
+ * Reads the fstab.yml file and returns the mountpoint for '/'.
+ * @returns {string}
+ */
+function getRootMountPoint() {
+  const filePath = join(process.env.GITHUB_WORKSPACE, 'fstab.yml');
+  const fileContent = readFileSync(filePath, 'utf8');
+  const parsed = yaml.parse(fileContent);
+  const mountpoints = parsed?.mountpoints || {};
+  return mountpoints['/'];
+}
+
+/**
  * Reads the fstab.yml file and determines the mountpoint type.
  * If successful, ensures the type matches the provided desired type.
  * @returns {Promise<void>}
@@ -27,12 +69,7 @@ export async function run() {
       throw new Error(`Invalid requested mountpoint type: ${desiredMountPointType}`);
     }
 
-    const filePath = join(process.env.GITHUB_WORKSPACE, 'fstab.yml');
-    const fileContent = readFileSync(filePath, 'utf8');
-    const parsed = yaml.parse(fileContent);
-    const mountpoints = parsed?.mountpoints || {};
-    const rootEntry = mountpoints['/'];
-
+    const rootEntry = core.getInput('mountpoint') || getRootMountPoint();
     if (!rootEntry) {
       throw new Error('No mountpoint for \'/\' found in fstab.yml');
     }
@@ -44,7 +81,6 @@ export async function run() {
     } else if (typeof rootEntry === 'object') {
       mountpointValue = rootEntry.url;
     }
-
     if (!mountpointValue) {
       throw new Error('Found mountpoint value is empty');
     }
@@ -63,6 +99,8 @@ export async function run() {
       throw new Error('Dropbox is not supported for upload.');
     } else if (/github\.com/i.test(mountpointValue)) {
       throw new Error('GitHub is not supported for upload.');
+    } else {
+      throw new Error(`This mountpoint is not supported for upload: ${mountpointValue}`);
     }
 
     if (type !== desiredMountPointType) {
@@ -71,6 +109,7 @@ export async function run() {
 
     core.setOutput('mountpoint', mountpointValue);
     core.setOutput('type', type);
+    core.setOutput('data', getMountPointData(mountpointValue, type));
 
     core.info(`✅ mountpoint: ${mountpointValue}`);
     core.info(`✅ type: ${type}`);
