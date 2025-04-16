@@ -1,6 +1,9 @@
 name: "Extract mountpoint and type"
 description: "Extracts the '/' mountpoint and determines its type"
 inputs:
+  mountpoint:
+    description: "Optional mountpoint, if already provided"
+    required: false
   mountpoint_type:
     description: "The mountpoint type to be extracted"
     required: true
@@ -9,6 +12,8 @@ outputs:
     description: "The value of the '/' mountpoint"
   type:
     description: "Determined type of the mountpoint"
+  data:
+    description: "A JSON string with the mountpoint parts, according to its type"
   error_message:
     description: "Error message if the operation could not be completed"
 runs:
