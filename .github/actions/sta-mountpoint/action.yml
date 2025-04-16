@@ -1,0 +1,16 @@
+name: "Extract mountpoint and type"
+description: "Extracts the '/' mountpoint and determines its type"
+inputs:
+  mountpoint_type:
+    description: "The mountpoint type to be extracted"
+    required: true
+outputs:
+  mountpoint:
+    description: "The value of the '/' mountpoint"
+  type:
+    description: "Determined type of the mountpoint"
+  error_message:
+    description: "Error message if the operation could not be completed"
+runs:
+  using: "node16"
+  main: "index.js"
