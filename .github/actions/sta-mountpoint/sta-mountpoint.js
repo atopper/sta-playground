@@ -65,7 +65,13 @@ export async function run() {
       throw new Error(`Invalid requested mountpoint type: ${desiredMountPointType}`);
     }
 
-    const rootEntry = core.getInput('mountpoint') || getRootMountPoint();
+    let rootEntry = core.getInput('mountpoint');
+    if (rootEntry) {
+      core.info(`mountpoint provided: ${rootEntry}`);
+    } else {
+      rootEntry = getRootMountPoint();
+      core.info(`mountpoint extracted: ${rootEntry}`);
+    }
     if (!rootEntry) {
       throw new Error('No mountpoint for \'/\' found in fstab.yml');
     }
