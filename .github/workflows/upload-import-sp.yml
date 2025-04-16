@@ -95,7 +95,7 @@ jobs:
         run: |
           cd .github/actions/sta-status
           npm install
-          cd .github/actions/sta-mountpoint
+          cd ../sta-mountpoint
           npm install
           cd ../sta-sp-drive
           npm install
