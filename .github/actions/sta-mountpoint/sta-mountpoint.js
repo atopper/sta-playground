@@ -29,8 +29,14 @@ function getMountPointData(mountpointValue, type) {
 
   if (type === 'sharepoint') {
     let pathParts;
-    [mountPointData.site, ...pathParts] = url.pathname.split('/sites/')[1].split('/');
-    mountPointData.path = pathParts ? pathParts.join('/') : undefined;
+    const sitesParts = url.pathname.split('/sites/');
+    [mountPointData.site, ...pathParts] = sitesParts[1].split('/');
+    mountPointData.path = pathParts.join('/');
+    if (sitesParts.length === 3) {
+      mountPointData.path = `${mountPointData.path}/sites/${sitesParts[2]}`;
+    }
+    const indexPastSite = url.pathname.indexOf(`/${mountPointData.site}/`) + `/${mountPointData.site}/`.length;
+    [mountPointData.path] = url.pathname.substring(indexPastSite);
     if (!mountPointData.host || !mountPointData.site || !mountPointData.path) {
       throw new Error('Mount point URL is not in the expected format.');
     }
@@ -69,10 +75,10 @@ export async function run() {
 
     let rootEntry = core.getInput('mountpoint');
     if (rootEntry) {
-      core.info(`mountpoint provided: ${rootEntry}`);
+      core.info(`✅ mountpoint provided: ${rootEntry}`);
     } else {
       rootEntry = getRootMountPoint();
-      core.info(`mountpoint extracted: ${rootEntry}`);
+      core.info(`✅ mountpoint extracted: ${rootEntry}`);
     }
     if (!rootEntry) {
       throw new Error('No mountpoint for \'/\' found in fstab.yml');
@@ -88,8 +94,6 @@ export async function run() {
     if (!mountpointValue) {
       throw new Error('Found mountpoint value is empty');
     }
-
-    core.info(`mountpoint: ${mountpointValue}`);
 
     // Determine the type
     let type = 'unknown';
@@ -113,7 +117,6 @@ export async function run() {
 
     core.setOutput('mountpoint', mountpointValue);
     core.setOutput('type', type);
-    core.info(`✅ mountpoint: ${mountpointValue}`);
     core.info(`✅ type: ${type}`);
     core.setOutput('data', getMountPointData(mountpointValue, type));
   } catch (error) {
