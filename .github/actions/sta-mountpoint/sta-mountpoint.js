@@ -30,18 +30,11 @@ function getMountPointData(mountpointValue, type) {
   if (type === 'sharepoint') {
     let pathParts;
     const sitesParts = url.pathname.split('/sites/');
-    core.info(`✅ sitesParts: ${JSON.stringify(sitesParts, undefined, 2)}`);
-
     [mountPointData.site, ...pathParts] = sitesParts[1].split('/');
-    core.info(`✅ pathParts: ${JSON.stringify(pathParts, undefined, 2)}`);
-
     mountPointData.path = pathParts.join('/');
     if (sitesParts.length === 3) {
       mountPointData.path = `${mountPointData.path}/sites/${sitesParts[2]}`;
-      core.info(`✅ mountPointData.path: ${JSON.stringify(mountPointData.path, undefined, 2)}`);
     }
-    const indexPastSite = url.pathname.indexOf(`/${mountPointData.site}/`) + `/${mountPointData.site}/`.length;
-    [mountPointData.path] = url.pathname.substring(indexPastSite);
     if (!mountPointData.host || !mountPointData.site || !mountPointData.path) {
       throw new Error('Mount point URL is not in the expected format.');
     }
@@ -55,11 +48,11 @@ function getMountPointData(mountpointValue, type) {
 }
 
 /**
- * Reads the fstab.yml file and returns the mountpoint for '/'.
+ * Reads the fstab.yaml file and returns the mountpoint for '/'.
  * @returns {string}
  */
 function getRootMountPoint() {
-  const filePath = join(process.env.GITHUB_WORKSPACE, 'fstab.yml');
+  const filePath = join(process.env.GITHUB_WORKSPACE, 'fstab.yaml');
   const fileContent = readFileSync(filePath, 'utf8');
   const parsed = yaml.parse(fileContent);
   const mountpoints = parsed?.mountpoints || {};
@@ -67,7 +60,7 @@ function getRootMountPoint() {
 }
 
 /**
- * Reads the fstab.yml file and determines the mountpoint type.
+ * Reads the fstab.yaml file and determines the mountpoint type.
  * If successful, ensures the type matches the provided desired type.
  * @returns {Promise<void>}
  */
@@ -86,7 +79,7 @@ export async function run() {
       core.info(`✅ mountpoint extracted: ${rootEntry}`);
     }
     if (!rootEntry) {
-      throw new Error('No mountpoint for \'/\' found in fstab.yml');
+      throw new Error('No mountpoint for \'/\' found in fstab.yaml');
     }
 
     // Determine string content from object or string
@@ -126,11 +119,11 @@ export async function run() {
     core.setOutput('data', getMountPointData(mountpointValue, type));
   } catch (error) {
     if (error?.code === 'ENOENT') {
-      core.warning('❌ Error: A mountpoint was not provided and the fstab.yml was not found');
-      core.setOutput('error_message', '❌ Error: mountpoint was not provided and the fstab.yml was not found');
+      core.warning('❌ Error: A mountpoint was not provided and the fstab.yaml was not found');
+      core.setOutput('error_message', '❌ Error: mountpoint was not provided and the fstab.yaml was not found');
     } else if (error.name.startsWith('YAML')) {
-      core.warning(`❌ Error: The fstab.yml file is not valid YAML: : ${error.message}`);
-      core.setOutput('error_message', `❌ Error: The fstab.yml file is not valid YAML: ${error.message}`);
+      core.warning(`❌ Error: The fstab.yaml file is not valid YAML: : ${error.message}`);
+      core.setOutput('error_message', `❌ Error: The fstab.yaml file is not valid YAML: ${error.message}`);
     } else {
       core.warning(`❌ Error: ${error.message}`);
       core.setOutput('error_message', `❌ Error: ${error.message}`);

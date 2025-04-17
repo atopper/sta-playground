@@ -15,7 +15,7 @@
   ],
   "author": "Experience Catalyst",
   "license": "ISC",
-  "description": "Read the fstab file and extract the mountpoint and type.",
+  "description": "Read the fstab file if necessary, and parse the mountpoint and type.",
   "dependencies": {
     "@actions/core": "^1.11.1",
     "yaml": "^2.3.4"
