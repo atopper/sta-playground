@@ -157,7 +157,7 @@ jobs:
           download_url: ${{ github.event.inputs.zip_url }}
 
       - name: Report if zip management failed
-        if: ${{ steps.fstab_data.outputs.error_message != '' }}
+        if: ${{ steps.download-zip.outputs.error_message != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -237,7 +237,7 @@ jobs:
         shell: bash
         run: |
           bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh \
-            "${{ steps.fstab_data.outputs.temp_dir }}/contents/docx" \
+            "${{ steps.download-zip.outputs.temp_dir }}/contents/docx" \
             "${{ steps.azure-auth.outputs.access_token }}" \
             "${{ steps.get-drive-info.outputs.drive_id }}" \
             "${{ github.event.inputs.aemy_callbacks }}" \
