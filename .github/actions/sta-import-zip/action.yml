@@ -1,0 +1,14 @@
+name: "Import zip manager"
+description: "Manage the download and unzipping of the import zip file"
+inputs:
+  download_url:
+    description: "The URL to download the zip file from"
+    required: true
+outputs:
+  temp_dir:
+    description: "The path to the temporary directory holding the zip and its contents"
+  error_message:
+    description: "Error message if the operation could not be completed"
+runs:
+  using: "node16"
+  main: "sta-import-zip.js"
