@@ -21,14 +21,14 @@ import unzipper from 'unzipper';
  * Create a temporary directory, with a 'contents' directory in it.
  * @returns {string} The path to the temporary directory.
  */
-async function createTempDirectory() {
+function createTempDirectory() {
   const tempDirPrefix = path.join(os.tmpdir(), 'sta-');
   const tempDir = fs.mkdtempSync(tempDirPrefix);
 
   const contentsDir = path.join(tempDir, 'contents');
   fs.mkdirSync(contentsDir, { recursive: true });
 
-  core.info(`✅ Import Zip Directory: ${tempDir}`);
+  core.info(`✅ Import Zip Directory: ${tempDir}. Contents: ${contentsDir}`);
 
   return tempDir;
 }
