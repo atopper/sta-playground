@@ -15,8 +15,11 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { Readable } from 'stream';
-import { finished } from 'stream/promises';
+import { finished, pipeline } from 'stream/promises';
 import unzipper from 'unzipper';
+
+const CONTENT_DIR_NAME = 'contents';
+const ZIP_NAME = 'import.zip';
 
 /**
  * Create a temporary directory, with a 'contents' directory in it.
@@ -26,7 +29,7 @@ function createTempDirectory() {
   const tempDirPrefix = path.join(os.tmpdir(), 'sta-');
   const tempDir = fs.mkdtempSync(tempDirPrefix);
 
-  const contentsDir = path.join(tempDir, 'contents');
+  const contentsDir = path.join(tempDir, CONTENT_DIR_NAME);
   fs.mkdirSync(contentsDir, { recursive: true });
 
   core.info(`✅ Import Zip Directory: ${tempDir}. Contents: ${contentsDir}`);
@@ -40,32 +43,40 @@ function createTempDirectory() {
  * @param {string} saveDir - The directory where the zip file will be saved.
  * @returns {Promise<string>} - The path to the saved zip file.
  */
-async function fetchAndExtractZip(downloadUrl, saveDir) {
-  const contentsDir = path.join(saveDir, 'contents');
+async function fetchZip(downloadUrl, saveDir) {
+  const zipDestination = path.join(saveDir, ZIP_NAME);
 
   const response = await fetch(downloadUrl);
   if (!response.ok) {
     throw new Error(`Failed to download zip. Did the url expire? ${response.status} ${response.statusText}`);
   }
 
-  // Convert web stream to Node stream
-  const nodeStream = Readable.fromWeb(response.body);
+  try {
+    const fileStream = fs.createWriteStream(zipDestination);
+    const nodeStream = Readable.fromWeb(response.body);
+
+    await pipeline(nodeStream, fileStream);
+
+    core.info(`✅ Downloaded Import zip to ${zipDestination}`);
+  } catch (error) {
+    throw new Error(`Failed to download zip: ${error.message || error}`);
+  }
+}
+
+async function extractContents(tempDir, contentsDir) {
+  const zipDestination = path.join(tempDir, ZIP_NAME);
 
   try {
-    // Pipe and await stream completion using `finished` from 'stream/promises'
-    const unzipStream = nodeStream.pipe(unzipper.Extract({ path: contentsDir }));
+    const zipStream = fs.createReadStream(zipDestination).pipe(
+      unzipper.Extract({ path: contentsDir }),
+    );
 
-    // Add error handling for the unzip stream directly
-    unzipStream.on('error', (err) => {
-      throw new Error(err);
-    });
-
-    await finished(unzipStream);
+    await finished(zipStream);
   } catch (error) {
     throw new Error(`Failed to extract zip: ${error.message || error}`);
   }
 
-  core.info('Downloaded and extracted Import zip contents to a temp directory.');
+  core.info(`✅ Import zip extracted to: ${contentsDir}`);
 }
 
 /**
@@ -83,9 +94,11 @@ export async function run() {
     new URL(downloadUrl);
 
     const tempDir = createTempDirectory();
-    await fetchAndExtractZip(downloadUrl, tempDir);
+    const contentsDir = path.join(tempDir, CONTENT_DIR_NAME);
+    await fetchZip(downloadUrl, tempDir);
+    await extractContents(tempDir, contentsDir);
 
-    core.setOutput('temp_dir', tempDir);
+    core.setOutput('contents_dir', contentsDir);
   } catch (error) {
     core.warning(`❌ Error: ${error.message}`);
     core.setOutput('error_message', `❌ Error: ${error.message}`);
