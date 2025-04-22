@@ -22,6 +22,7 @@ on:
       zip_url:
         description: 'The URL of the zip file to download.'
         required: true
+        type: password
       aemy_callbacks:
         description: 'The AEMY context as a string.'
         required: true
@@ -29,11 +30,11 @@ on:
       aemy_context:
         description: 'The AEMY context as a string.'
         required: true
+      root_mountpoint:
+        description: 'The mountpoint mapped to the root of the SharePoint site.'
+        required: true
       action_url:
-        description: 'The URL of the repo to check the progress or the results of a workflow.'
-        required: false
-      rootMountPoint:
-        description: 'The mount point mapped to the root of the SharPoint site. If not provided, a root mount point will be extracted from the fstab.yaml file.'
+        description: 'The URL that shows state of the workflow as an aid for the user.'
         required: false
 
 permissions:
@@ -54,10 +55,6 @@ jobs:
           if [ -n "${{ github.event.inputs.action_url }}" ]; then
             ACTION_URL="JS_LFJS_LF🕵 See the Action URL to check the progress or the results of the workflow: ${{ github.event.inputs.action_url }}"
             echo "ACTION_URL=$ACTION_URL" >> $GITHUB_ENV
-          fi
-          if [ -n "${{ github.event.inputs.rootMountPoint }}" ]; then
-            ROOT_MOUNT_POINT="${{ github.event.inputs.rootMountPoint }}"
-            echo "ROOT_MOUNT_POINT=$ROOT_MOUNT_POINT" >> $GITHUB_ENV
           fi
           
           # Required parameters
@@ -95,6 +92,8 @@ jobs:
         run: |
           cd .github/actions/sta-status
           npm install
+          cd ../sta-import-zip
+          npm install
           cd ../sta-mountpoint
           npm install
           cd ../sta-sp-drive
@@ -102,7 +101,7 @@ jobs:
           cd ../sta-azure-helper
           npm install
 
-      - name: Missing inputs error check
+      - name: Report if inputs are invalid
         if: ${{ env.errorMessage != '' }}
         uses: ./.github/actions/sta-status
         with:
@@ -121,35 +120,15 @@ jobs:
           status_type: progress
           agent_name: upload-import-sp
 
-      - name: Create temp directory
-        run: |
-          # Create temp directory to download the zip and extract its contents into.
-          temp_dir=$(mktemp -d)
-          if [ $? -ne 0 ]; then
-            message="Could not create a temporary folder for extraction. ${{ env.ACTION_URL }}"
-            echo "errorMessage=$message" >> $GITHUB_ENV
-          fi
-          echo "temp_dir=${temp_dir}" >> $GITHUB_ENV
-
-      - name: Temp direction creation error check
-        if: ${{ env.errorMessage != '' }}
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ env.errorMessage }}
-          status_type: error
-          agent_name: upload-import-sp
-
       - name: Install dependencies
         run: |
-          sudo apt-get install -y unzip jq uuid-runtime openssl
+          sudo apt-get install -y jq openssl
 
-      - name: Figure out mountpoint
+      - name: Parse mountpoint
         id: fstab_data
         uses: ./.github/actions/sta-mountpoint
         with:
-          mountpoint: ${{ env.ROOT_MOUNT_POINT }}
+          mountpoint: ${{ github.event.inputs.root_mountpoint }}
           mountpoint_type: 'sharepoint'
 
       - name: Report if mountpoint failed
@@ -162,94 +141,37 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 2 - Downloading zip
+      - name: Progress 2 - Extracting zip
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Downloading Import zip... (Step 2 of 5).
+          message: Downloading and extracting Import zip... (Step 2 of 5).
           status_type: progress
           agent_name: upload-import-sp
 
-      - name: Download import zip file
-        run: |
-          echo "Downloading the import zip to ${{ env.temp_dir }}..."
-          curl -Lo "${{ env.temp_dir }}/import.zip" "${{ github.event.inputs.zip_url }}" 2>&1 \
-            || { echo "Import zip cannot be fetched."; }
+      - name: Download and extract import zip file
+        id: download-zip
+        uses: ./.github/actions/sta-import-zip
+        with:
+          download_url: ${{ github.event.inputs.zip_url }}
 
-      - name: Report download failure or extraction progress
-        run: |
-          if [ ! -f "${{ env.temp_dir }}/import.zip" ]; then
-            message=" Import zip file not found. Check the output of the previous workflow step. Exiting. ${{ env.ACTION_URL }}"
-            echo "errorMessage=$message" >> $GITHUB_ENV
-          else
-            # Zip exists, check if it is a valid zip file.
-            chmod 755 "${{ env.temp_dir }}/import.zip"
-            ls -hl "${{ env.temp_dir }}/import.zip"
-            if ! [[ $(file "${{ env.temp_dir }}/import.zip") =~ 'Zip archive data' ]]; then
-              message=": Downloaded file is not a valid zip file. Did the URL expire (i.e. UnauthorizedDownloaded)? ${{ env.ACTION_URL }}"
-              echo "errorMessage=$message" >> $GITHUB_ENV     
-            fi
-          fi
-
-      - name: Zip validation error check
-        if: ${{ env.errorMessage != '' }}
+      - name: Report if zip management failed
+        if: ${{ steps.fstab_data.outputs.error_message != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ env.errorMessage }}
+          message: ${{ steps.fstab_data.outputs.error_message }} ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 3 - Extracting zip
+      - name: Progress 3 - Getting upload authorization
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Import Zip is downloaded. Now extracting its contents... (Step 3 of 5).
-          status_type: progress
-          agent_name: upload-import-sp
-
-      - name: Extract import zip contents
-        run: |
-          unzip ${{ env.temp_dir }}/import.zip -d "${{ env.temp_dir }}/content"
-          if [ $? -ne 0 ]; then
-            message="Extraction of the Import zip failed. Please wait a few minutes and try again. ${{ env.ACTION_URL }}"
-            echo "errorMessage=$message" >> $GITHUB_ENV   
-          else
-            file_count=$(find "${{ env.temp_dir }}/content" -type f | wc -l)
-            echo "Number of files extracted: $file_count"
-            echo "EXTRACTED_FILE_COUNT=$file_count" >> $GITHUB_ENV
-
-            # Estimate upload time, including a 1 second delay per file (with 2 minute safety net),
-            # in case we need the access_token to last longer.
-            upload_duration=$((file_count * 3 + 120))
-            if [ "$upload_duration" -lt 3600 ]; then
-              echo "Estimate upload duration: $upload_duration. Defaulting to 3600 seconds."
-              upload_duration=3600
-            else
-              echo "Total upload duration time should be around: $upload_duration seconds."
-            fi
-            echo "UPLOAD_DURATION=$upload_duration" >> $GITHUB_ENV
-          fi
-
-      - name: Zip validation error check
-        if: ${{ env.errorMessage != '' }}
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ env.errorMessage }}
-          status_type: error
-          agent_name: upload-import-sp
-
-      - name: Progress 4 - Getting upload authorization
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: Zip extracted with ${{ env.EXTRACTED_FILE_COUNT }} files. Getting upload authorization... (Step 4 of 5).
+          message: Zip extracted with ${{ env.EXTRACTED_FILE_COUNT }} files. Getting upload authorization... (Step 3 of 5).
           status_type: progress
           agent_name: upload-import-sp
 
@@ -264,7 +186,7 @@ jobs:
           thumbprint: ${{ env.AZURE_THUMBPRINT }}
           duration: ${{ env.UPLOAD_DURATION }}
 
-      - name: Access error check
+      - name: Report if access token failed
         if: ${{ steps.azure-auth.outputs.access_token == '' }}
         uses: ./.github/actions/sta-status
         with:
@@ -274,12 +196,12 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 5 - Getting drive information
+      - name: Progress 4 - Getting drive information
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: SharePoint access granted. Now fetching drive id... (Step 5 of 6).
+          message: SharePoint access granted. Now fetching drive id... (Step 4 of 5).
           status_type: progress
           agent_name: upload-import-sp
 
@@ -291,7 +213,7 @@ jobs:
           sp_site_path: ${{ fromJSON(steps.fstab_data.outputs.data).site }}
           sp_folder_path: ${{ fromJSON(steps.fstab_data.outputs.data).path }}
 
-      - name: Drive id error check
+      - name: Report if Drive id failed
         if: ${{ steps.get-drive-info.outputs.drive_id == '' }}
         uses: ./.github/actions/sta-status
         with:
@@ -301,12 +223,12 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 6 - Uploading to SharePoint
+      - name: Progress 5 - Uploading to SharePoint
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Drive ID acquired. Now starting upload... (Step 6 of 6).
+          message: Drive ID acquired. Now starting upload... (Step 5 of 5).
           status_type: progress
           agent_name: upload-import-sp
 
@@ -315,7 +237,7 @@ jobs:
         shell: bash
         run: |
           bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh \
-            "${{ env.temp_dir }}/content/docx" \
+            "${{ steps.fstab_data.outputs.temp_dir }}/contents/docx" \
             "${{ steps.azure-auth.outputs.access_token }}" \
             "${{ steps.get-drive-info.outputs.drive_id }}" \
             "${{ github.event.inputs.aemy_callbacks }}" \
@@ -343,7 +265,7 @@ jobs:
           status_type: progress
           agent_name: upload-import-sp
 
-      - name: Upload error check
+      - name: Report if upload failed
         if: ${{ env.errorMessage != '' }}
         uses: ./.github/actions/sta-status
         with:
