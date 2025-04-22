@@ -237,7 +237,7 @@ jobs:
         shell: bash
         run: |
           bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh \
-            "${{ steps.download-zip.outputs.temp_dir }}/contents/docx" \
+            "${{ steps.download-zip.outputs.contents_dir }}/docx" \
             "${{ steps.azure-auth.outputs.access_token }}" \
             "${{ steps.get-drive-info.outputs.drive_id }}" \
             "${{ github.event.inputs.aemy_callbacks }}" \
