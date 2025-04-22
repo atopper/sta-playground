@@ -14,6 +14,7 @@ import core from '@actions/core';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { Readable } from 'stream';
 import { finished } from 'stream/promises';
 import unzipper from 'unzipper';
 
@@ -42,19 +43,17 @@ function createTempDirectory() {
 async function fetchAndExtractZip(downloadUrl, saveDir) {
   const contentsDir = path.join(saveDir, 'contents');
 
-  const response = await fetch(downloadUrl, {
-    method: 'GET',
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
-    },
-  });
+  const response = await fetch(downloadUrl);
   if (!response.ok) {
     throw new Error(`Failed to download zip. Did the url expire? ${response.status} ${response.statusText}`);
   }
 
+  // Convert web stream to Node stream
+  const nodeStream = Readable.fromWeb(response.body);
+
   try {
     // Pipe and await stream completion using `finished` from 'stream/promises'
-    const unzipStream = response.body.pipe(unzipper.Extract({ path: contentsDir }));
+    const unzipStream = nodeStream.pipe(unzipper.Extract({ path: contentsDir }));
     await finished(unzipStream);
   } catch (error) {
     throw new Error(`Failed to extract zip: ${error.message || error}`);
