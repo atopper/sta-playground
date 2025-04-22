@@ -15,7 +15,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { Readable } from 'stream';
-import { finished, pipeline } from 'stream/promises';
+import { pipeline } from 'stream/promises';
 import unzipper from 'unzipper';
 
 const CONTENT_DIR_NAME = 'contents';
@@ -55,7 +55,7 @@ async function fetchZip(downloadUrl, zipDestination) {
 
     await pipeline(nodeStream, fileStream);
 
-    // Validate zip file
+    // Validate zip file (will throw exception if invalid)
     const directory = await unzipper.Open.file(zipDestination);
 
     core.info(`✅ Downloaded Import zip to ${zipDestination} with ${directory.files.length} files.`);
@@ -64,19 +64,25 @@ async function fetchZip(downloadUrl, zipDestination) {
   }
 }
 
-async function extractContents(tempDir, contentsDir) {
-  const zipDestination = path.join(tempDir, ZIP_NAME);
-
+async function extractZip(zipPath, contentsDir) {
   try {
-    const zipStream = fs.createReadStream(zipDestination).pipe(
-      unzipper.Extract({ path: contentsDir }),
-    );
+    const directory = await unzipper.Open.file(zipPath);
+    for (const entry of directory.files) {
+      const fullPath = path.join(contentsDir, entry.path);
 
-    zipStream.on('error', (err) => {
-      core.error('Unzip Stream emitted error:', err.message || err);
-    });
-
-    await finished(zipStream);
+      if (entry.type === 'Directory') {
+        fs.mkdirSync(fullPath, { recursive: true });
+      } else {
+        await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
+        const writable = fs.createWriteStream(fullPath);
+        await new Promise((resolve, reject) => {
+          entry.stream()
+            .pipe(writable)
+            .on('finish', resolve)
+            .on('error', reject);
+        });
+      }
+    }
   } catch (error) {
     throw new Error(`Failed to extract zip: ${error.message || error}`);
   }
@@ -102,7 +108,7 @@ export async function run() {
     const zipDestination = path.join(tempDir, ZIP_NAME);
     const contentsDir = path.join(tempDir, CONTENT_DIR_NAME);
     await fetchZip(downloadUrl, zipDestination);
-    await extractContents(tempDir, contentsDir);
+    await extractZip(zipDestination, contentsDir);
 
     core.setOutput('contents_dir', contentsDir);
   } catch (error) {
