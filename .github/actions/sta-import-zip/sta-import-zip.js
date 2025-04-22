@@ -54,6 +54,12 @@ async function fetchAndExtractZip(downloadUrl, saveDir) {
   try {
     // Pipe and await stream completion using `finished` from 'stream/promises'
     const unzipStream = nodeStream.pipe(unzipper.Extract({ path: contentsDir }));
+
+    // Add error handling for the unzip stream directly
+    unzipStream.on('error', (err) => {
+      throw new Error(err);
+    });
+
     await finished(unzipStream);
   } catch (error) {
     throw new Error(`Failed to extract zip: ${error.message || error}`);
