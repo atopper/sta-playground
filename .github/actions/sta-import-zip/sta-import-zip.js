@@ -40,12 +40,10 @@ function createTempDirectory() {
 /**
  * Fetch a zip file from a URL and save it to a specified directory.
  * @param {string} downloadUrl - The URL of the zip file to download.
- * @param {string} saveDir - The directory where the zip file will be saved.
+ * @param {string} zipDestination - The full file path where the zip file will be saved.
  * @returns {Promise<string>} - The path to the saved zip file.
  */
-async function fetchZip(downloadUrl, saveDir) {
-  const zipDestination = path.join(saveDir, ZIP_NAME);
-
+async function fetchZip(downloadUrl, zipDestination) {
   const response = await fetch(downloadUrl);
   if (!response.ok) {
     throw new Error(`Failed to download zip. Did the url expire? ${response.status} ${response.statusText}`);
@@ -57,7 +55,10 @@ async function fetchZip(downloadUrl, saveDir) {
 
     await pipeline(nodeStream, fileStream);
 
-    core.info(`✅ Downloaded Import zip to ${zipDestination}`);
+    // Validate zip file
+    const directory = await unzipper.Open.file(zipDestination);
+
+    core.info(`✅ Downloaded Import zip to ${zipDestination} with ${directory.files.length} files.`);
   } catch (error) {
     throw new Error(`Failed to download zip: ${error.message || error}`);
   }
@@ -70,6 +71,10 @@ async function extractContents(tempDir, contentsDir) {
     const zipStream = fs.createReadStream(zipDestination).pipe(
       unzipper.Extract({ path: contentsDir }),
     );
+
+    zipStream.on('error', (err) => {
+      core.error('Unzip Stream emitted error:', err.message || err);
+    });
 
     await finished(zipStream);
   } catch (error) {
@@ -94,8 +99,9 @@ export async function run() {
     new URL(downloadUrl);
 
     const tempDir = createTempDirectory();
+    const zipDestination = path.join(tempDir, ZIP_NAME);
     const contentsDir = path.join(tempDir, CONTENT_DIR_NAME);
-    await fetchZip(downloadUrl, tempDir);
+    await fetchZip(downloadUrl, zipDestination);
     await extractContents(tempDir, contentsDir);
 
     core.setOutput('contents_dir', contentsDir);
