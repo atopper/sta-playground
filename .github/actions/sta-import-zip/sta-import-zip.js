@@ -42,7 +42,12 @@ function createTempDirectory() {
 async function fetchAndExtractZip(downloadUrl, saveDir) {
   const contentsDir = path.join(saveDir, 'contents');
 
-  const response = await fetch(downloadUrl);
+  const response = await fetch(downloadUrl, {
+    method: 'GET',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+    },
+  });
   if (!response.ok) {
     throw new Error(`Failed to download zip. Did the url expire? ${response.status} ${response.statusText}`);
   }
