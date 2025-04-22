@@ -64,9 +64,18 @@ async function fetchZip(downloadUrl, zipDestination) {
   }
 }
 
+/**
+ * Unzip one file at a time.
+ * @param zipPath
+ * @param contentsDir
+ * @returns {Promise<void>}
+ */
 async function extractZip(zipPath, contentsDir) {
   try {
     const directory = await unzipper.Open.file(zipPath);
+    const totalFiles = directory.files.length;
+    let extractedFiles = 0;
+    let nextProgress = 20;
     for (const entry of directory.files) {
       const fullPath = path.join(contentsDir, entry.path);
 
@@ -81,6 +90,13 @@ async function extractZip(zipPath, contentsDir) {
             .on('finish', resolve)
             .on('error', reject);
         });
+      }
+
+      extractedFiles += 1;
+      const progress = Math.floor((extractedFiles / totalFiles) * 100);
+      if (progress >= nextProgress) {
+        core.info(`⏳ Extraction progress: ${progress}% (${extractedFiles}/${totalFiles} files)`);
+        nextProgress += 20;
       }
     }
   } catch (error) {
