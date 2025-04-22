@@ -69,7 +69,8 @@ export async function run() {
     if (!downloadUrl.includes('spacecat')) {
       throw new Error(`Invalid download url: ${downloadUrl}`);
     }
-    URL(downloadUrl);
+    // eslint-disable-next-line no-new
+    new URL(downloadUrl);
 
     const tempDir = createTempDirectory();
     await fetchAndExtractZip(downloadUrl, tempDir);
