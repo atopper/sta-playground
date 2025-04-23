@@ -38,20 +38,26 @@ async function runUpload(
 
     // Try to make it easy to read in the logs.
     const suffixArray = ['', '', '\n>  ', '', '\n>  ', '', '\n>  ', '', '\n>  '];
-    const maskedArgs = args.map((arg, index) => (arg === token ? '***' : `${arg}${suffixArray[index % suffixArray.length]}`));
+    const maskedArgs = args.map((arg, index) => (arg === token ? '***\n>  ' : `${arg}${suffixArray[index % suffixArray.length]}`));
     core.info('Running command:');
     core.info(`> npx ${maskedArgs.join(' ')}`);
 
     const child = spawn('npx', args, {
-      stdio: 'inherit', // Inherits stdout/stderr so you can see output in logs
+      stdio: ['inherit', 'inherit', 'pipe'], // Pipe stderr to capture errors
       shell: true, // Required for `npx` to work correctly in some environments
+    });
+
+    let errorOutput = '';
+    child.stderr.on('data', (data) => {
+      errorOutput += data.toString();
     });
 
     child.on('exit', (code) => {
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`aem-import-helper failed with exit code ${code}`));
+        core.error(`Errors: ${errorOutput}`);
+        reject(new Error(`aem-import-helper failed. Error: ${errorOutput}`));
       }
     });
   });
