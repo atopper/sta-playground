@@ -36,7 +36,9 @@ async function runUpload(
       args.push('--skip-assets');
     }
 
-    const maskedArgs = args.map((arg) => (arg === token ? '***' : arg));
+    // Try to make it easy to read in the logs.
+    const suffixArray = ['', '', '', '\n> ', '', '\n> ', '', '\n> ', '', '\n> '];
+    const maskedArgs = args.map((arg, index) => (arg === token ? '***' : `${arg}${suffixArray[index % suffixArray.length]}`));
     core.info('Running command:');
     core.info(`> npx ${maskedArgs.join(' ')}`);
 
