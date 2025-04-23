@@ -32,7 +32,7 @@ function createTempDirectory() {
   const contentsDir = path.join(tempDir, CONTENT_DIR_NAME);
   fs.mkdirSync(contentsDir, { recursive: true });
 
-  core.info(`✅ Import Zip Directory: ${tempDir}. Contents: ${contentsDir}`);
+  core.info(`✅ Import Zip directory created: ${tempDir}. Contents: ${contentsDir}`);
 
   return tempDir;
 }
@@ -71,9 +71,10 @@ async function fetchZip(downloadUrl, zipDestination) {
  * @returns {Promise<void>}
  */
 async function extractZip(zipPath, contentsDir) {
+  let totalFiles = -1;
   try {
     const directory = await unzipper.Open.file(zipPath);
-    const totalFiles = directory.files.length;
+    totalFiles = directory.files.length;
     let extractedFiles = 0;
     let nextProgress = 20;
     for (const entry of directory.files) {
@@ -104,6 +105,8 @@ async function extractZip(zipPath, contentsDir) {
   }
 
   core.info(`✅ Import zip extracted to: ${contentsDir}`);
+
+  return totalFiles;
 }
 
 /**
@@ -125,9 +128,10 @@ export async function run() {
     zipDestination = path.join(tempDir, ZIP_NAME);
     const contentsDir = path.join(tempDir, CONTENT_DIR_NAME);
     await fetchZip(downloadUrl, zipDestination);
-    await extractZip(zipDestination, contentsDir);
+    const fileCount = await extractZip(zipDestination, contentsDir);
 
     core.setOutput('contents_dir', contentsDir);
+    core.setOutput('file_count', fileCount);
   } catch (error) {
     core.warning(`❌ Error: ${error.message}`);
     core.setOutput('error_message', `❌ Error: ${error.message}`);
