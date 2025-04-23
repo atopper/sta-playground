@@ -71,7 +71,6 @@ export async function run() {
     const fullZipPath = path.join(zipPath, zipName || 'xwalk-index.zip');
 
     await runUpload(
-      `${zipPath}/xwalk-index.zip`,
       fullZipPath,
       `${zipPath}/asset-mapping.json`,
       target,
