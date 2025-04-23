@@ -13,14 +13,23 @@
 import core from '@actions/core';
 import { spawn } from 'child_process';
 import forge from 'node-forge';
+import path from 'path';
 
-async function runUpload(xwalkZipPath, assetMappingPath, target, token, skipAssets = false) {
+async function runUpload(
+  xwalkZipPath,
+  xwalkZipName,
+  assetMappingPath,
+  target,
+  token,
+  skipAssets = false,
+) {
+  const fullZipPath = path.join(xwalkZipPath, xwalkZipName || 'xwalk-index.zip');
   return new Promise((resolve, reject) => {
     const args = [
       '@adobe/aem-import-helper',
       'aem',
       'upload',
-      '--zip', xwalkZipPath,
+      '--zip', fullZipPath,
       '--asset-mapping', assetMappingPath,
       '--target', target,
       '--token', token,
@@ -55,14 +64,16 @@ export async function run() {
   const token64 = core.getInput('upload_token');
   const target = core.getInput('root_mountpoint');
   const zipPath = core.getInput('zip_path');
+  const zipName = core.getInput('zip_name');
   const skipAssets = core.getInput('skip_assets');
 
   try {
     const token = forge.util.decode64(token64);
 
     await runUpload(
-      `${zipPath}/xwalk.zip`,
-      `${zipPath}/asset-mapping.json`,
+      `${zipPath}/contents/xwalk-index.zip`,
+      `${zipName}`,
+      `${zipPath}/contents/asset-mapping.json`,
       target,
       token,
       skipAssets === 'true',
