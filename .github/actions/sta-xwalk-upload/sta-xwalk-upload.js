@@ -49,6 +49,7 @@ async function runUpload(
 
     let errorOutput = '';
     child.stderr.on('data', (data) => {
+      core.info(data.toString());
       errorOutput = data.toString(); // Only save the last line (real error)
     });
 
