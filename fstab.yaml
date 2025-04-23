@@ -1,6 +1,6 @@
 mountpoints:
   /:
-    url: "https://author-p141866-e1455422.adobeaemcloud.com/bin/franklin.delivery/bhellema/xwalk-demo/main"
+    url: "https://author-p141866-e1455422.adobeaemcloud.com/bin/franklin.delivery/top/xwalk-demo/main"
     type: "markup"
     suffix: ".html"
 
