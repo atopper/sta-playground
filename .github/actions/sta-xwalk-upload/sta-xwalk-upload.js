@@ -37,7 +37,8 @@ async function runUpload(
     }
 
     const maskedArgs = args.map((arg) => (arg === token ? '***' : arg));
-    core.info(`Running command: npx ${maskedArgs.join(' ')}`);
+    core.info('Running command:');
+    core.info(`> npx ${maskedArgs.join(' ')}`);
 
     const child = spawn('npx', args, {
       stdio: 'inherit', // Inherits stdout/stderr so you can see output in logs
