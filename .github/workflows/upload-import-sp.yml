@@ -146,7 +146,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Downloading and extracting Import zip... (Step 2 of 5).
+          message: Downloading and extracting content from the Import zip... (Step 2 of 5).
           status_type: progress
           agent_name: upload-import-sp
 
@@ -171,7 +171,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Zip extracted with ${{ env.EXTRACTED_FILE_COUNT }} files. Getting upload authorization... (Step 3 of 5).
+          message: Zip extracted with ${{ steps.download-zip.outputs.file_count }} files. Getting upload authorization... (Step 3 of 5).
           status_type: progress
           agent_name: upload-import-sp
 
@@ -237,7 +237,7 @@ jobs:
         shell: bash
         run: |
           bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh \
-            "${{ steps.download-zip.outputs.contents_dir }}/docx" \
+            "${{ steps.download-zip.outputs.temp_dir }}/contents/docx" \
             "${{ steps.azure-auth.outputs.access_token }}" \
             "${{ steps.get-drive-info.outputs.drive_id }}" \
             "${{ github.event.inputs.aemy_callbacks }}" \
@@ -288,4 +288,4 @@ jobs:
         if: always()
         run: |
           # Delete the temp dir immediately, having system delete it eventually as a redundancy.
-          rm -rf "${{ env.temp_dir }}"
+          rm -rf "${{ steps.download-zip.outputs.temp_dir }}"
