@@ -11,8 +11,8 @@ inputs:
   zip_path:
     description: "The path to the contents of the Import zip"
     required: true
-  xwalk_zip:
-    description: "The path in the temp contents folder to the xwalk zip package"
+  zip_name:
+    description: "The path in the zip_path contents folder to the xwalk zip package"
     required: false
   skip_assets:
     description: "The agent name to help identify things in logs"
