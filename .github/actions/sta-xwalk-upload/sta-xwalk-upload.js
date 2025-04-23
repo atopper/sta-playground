@@ -29,9 +29,8 @@ async function runUpload(xwalkZipPath, assetMappingPath, target, token, skipAsse
       args.push('--skip-assets');
     }
 
-    const logArgs = { ...args, '--token': '***' };
-    core.info(`Running masked command: npx ${logArgs.join(' ')}`);
-    core.info(`Running command: npx ${args.join(' ')}`);
+    const maskedArgs = args.map((arg) => (arg === token ? '***' : arg));
+    core.info(`Running command: npx ${maskedArgs.join(' ')}`);
 
     const child = spawn('npx', args, {
       stdio: 'inherit', // Inherits stdout/stderr so you can see output in logs
