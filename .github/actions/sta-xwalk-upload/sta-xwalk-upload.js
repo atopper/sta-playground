@@ -37,7 +37,7 @@ async function runUpload(
     }
 
     // Try to make it easy to read in the logs.
-    const suffixArray = ['', '', '', '\n> ', '', '\n> ', '', '\n> ', '', '\n> '];
+    const suffixArray = ['', '', '\n>  ', '', '\n>  ', '', '\n>  ', '', '\n>  '];
     const maskedArgs = args.map((arg, index) => (arg === token ? '***' : `${arg}${suffixArray[index % suffixArray.length]}`));
     core.info('Running command:');
     core.info(`> npx ${maskedArgs.join(' ')}`);
