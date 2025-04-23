@@ -145,7 +145,7 @@ jobs:
         uses: ./.github/actions/sta-xwalk-upload
         with:
             upload_token: ${{ env.XWALK_UPLOAD_TOKEN }}
-            mountpoint: ${{ github.event.inputs.mountpoint }}
+            root_mountpoint: ${{ github.event.inputs.root_mountpoint }}
             skip_assets: ${{ github.event.inputs.skip_assets }}
             zip_path: ${{ steps.download-zip.outputs.temp_dir }}/contents
 
