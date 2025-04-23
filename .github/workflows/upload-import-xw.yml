@@ -138,7 +138,7 @@ jobs:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
           message: Zip extracted with ${{ steps.download-zip.outputs.file_count }} files but the XWalk zip was not found so will assume \"xwalk-index.zip\". Initiating upload... (Step 3 of 5).
-          status_type: error
+          status_type: progress
           agent_name: upload-import-xw
 
       - name: Progress 3b - Initiating upload with found zip name
