@@ -130,7 +130,7 @@ export async function run() {
     await fetchZip(downloadUrl, zipDestination);
     const fileCount = await extractZip(zipDestination, contentsDir);
 
-    core.setOutput('contents_dir', contentsDir);
+    core.setOutput('temp_dir', tempDir);
     core.setOutput('file_count', fileCount);
   } catch (error) {
     core.warning(`❌ Error: ${error.message}`);
