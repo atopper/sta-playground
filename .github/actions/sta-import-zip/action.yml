@@ -6,7 +6,9 @@ inputs:
     required: true
 outputs:
   temp_dir:
-    description: "The path to the temporary directory holding the zip and its contents"
+    description: "The path to the temporary directory holding the zip's contents"
+  file_count:
+    description: "The count of the items successfully extracted from the zip"
   error_message:
     description: "Error message if the operation could not be completed"
 runs:
