@@ -112,6 +112,7 @@ async function extractZip(zipPath, contentsDir) {
  * @returns {Promise<void>}
  */
 export async function run() {
+  let zipDestination;
   try {
     const downloadUrl = core.getInput('download_url');
     if (!downloadUrl.includes('spacecat')) {
@@ -121,7 +122,7 @@ export async function run() {
     new URL(downloadUrl);
 
     const tempDir = createTempDirectory();
-    const zipDestination = path.join(tempDir, ZIP_NAME);
+    zipDestination = path.join(tempDir, ZIP_NAME);
     const contentsDir = path.join(tempDir, CONTENT_DIR_NAME);
     await fetchZip(downloadUrl, zipDestination);
     await extractZip(zipDestination, contentsDir);
@@ -130,6 +131,15 @@ export async function run() {
   } catch (error) {
     core.warning(`❌ Error: ${error.message}`);
     core.setOutput('error_message', `❌ Error: ${error.message}`);
+  } finally {
+    try {
+      // Done with the zip file, so delete it if possible.
+      if (zipDestination) {
+        fs.unlinkSync(zipDestination);
+      }
+    } catch (error) {
+      core.info(`Could not delete ${zipDestination}. Let the OS handle the deletion.`);
+    }
   }
 }
 
