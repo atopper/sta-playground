@@ -49,14 +49,13 @@ async function runUpload(
 
     let errorOutput = '';
     child.stderr.on('data', (data) => {
-      errorOutput += data.toString();
+      errorOutput = data.toString(); // Only save the last line (real error)
     });
 
     child.on('exit', (code) => {
       if (code === 0) {
         resolve();
       } else {
-        core.error(`Errors: ${errorOutput}`);
         reject(new Error(`aem-import-helper failed. Error: ${errorOutput}`));
       }
     });
