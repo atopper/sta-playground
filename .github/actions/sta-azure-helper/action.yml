@@ -14,8 +14,8 @@ inputs:
   password:
     description: "Password to decrypt the PFX content. Mandatory if the cert was created with a password."
     required: false
-  thumbnail:
-    description: "The Azure app's certificate thumbnail"
+  thumbprint:
+    description: "The Azure app's certificate thumbprint"
     required: true
   duration:
     description: "Estimate of the number of seconds that the access_token should be valid for. Default is 3600 seconds."
