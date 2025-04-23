@@ -17,19 +17,17 @@ import path from 'path';
 
 async function runUpload(
   xwalkZipPath,
-  xwalkZipName,
   assetMappingPath,
   target,
   token,
   skipAssets = false,
 ) {
-  const fullZipPath = path.join(xwalkZipPath, xwalkZipName || 'xwalk-index.zip');
   return new Promise((resolve, reject) => {
     const args = [
       '@adobe/aem-import-helper',
       'aem',
       'upload',
-      '--zip', fullZipPath,
+      '--zip', xwalkZipPath,
       '--asset-mapping', assetMappingPath,
       '--target', target,
       '--token', token,
@@ -70,10 +68,12 @@ export async function run() {
   try {
     const token = forge.util.decode64(token64);
 
+    const fullZipPath = path.join(zipPath, zipName || 'xwalk-index.zip');
+
     await runUpload(
-      `${zipPath}/contents/xwalk-index.zip`,
-      `${zipName}`,
-      `${zipPath}/contents/asset-mapping.json`,
+      `${zipPath}/xwalk-index.zip`,
+      fullZipPath,
+      `${zipPath}/asset-mapping.json`,
       target,
       token,
       skipAssets === 'true',
