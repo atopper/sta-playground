@@ -21,7 +21,7 @@ on:
       aemy_context:
         description: 'The AEMY context as a string.'
         required: true
-      mountpoint:
+      root_mountpoint:
         description: 'The target of the upload. This is the Adobe AEM Cloud URL.'
         required: true
       skip_assets:
