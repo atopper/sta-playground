@@ -9,6 +9,8 @@ outputs:
     description: "The path to the temporary directory holding the zip's contents"
   file_count:
     description: "The count of the items successfully extracted from the zip"
+  xwalk_zip:
+    description: "The name of the xwalk (first) zip file, inside the contents folder"
   error_message:
     description: "Error message if the operation could not be completed"
 runs:

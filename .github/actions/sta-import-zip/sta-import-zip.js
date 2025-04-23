@@ -79,6 +79,9 @@ async function extractZip(zipPath, contentsDir) {
     let nextProgress = 20;
     for (const entry of directory.files) {
       const fullPath = path.join(contentsDir, entry.path);
+      if (extractedFiles < 3 && entry.path.toLowerCase().endsWith('.zip')) {
+        core.setOutput('xwalk_zip', entry.path);
+      }
 
       if (entry.type === 'Directory') {
         fs.mkdirSync(fullPath, { recursive: true });
