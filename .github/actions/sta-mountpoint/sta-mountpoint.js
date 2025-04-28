@@ -24,7 +24,7 @@ import yaml from 'yaml';
 function getMountPointData(mountpointValue, type) {
   const url = new URL(mountpointValue);
   const mountPointData = {
-    host: `${url.protocol}//${url.host}`,
+    host: `${url.host}`,
   };
 
   if (type === 'sharepoint') {
