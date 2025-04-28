@@ -11,6 +11,7 @@
  */
 
 import core from '@actions/core';
+// eslint-disable-next-line import/no-unresolved
 import forge from 'node-forge';
 import crypto from 'crypto';
 
@@ -38,7 +39,7 @@ function createJWTHeaderAndPayload(thumbprint, tenantId, clientId, duration) {
     sub: clientId,
     jti: crypto.randomUUID(),
     nbf: now,
-    exp: now + parseInt(duration, 10), // 60 minutes
+    exp: now + parseInt(duration, 10), // default: 60 minutes
   };
 
   return { header, payload };
@@ -51,12 +52,13 @@ function createJWTHeaderAndPayload(thumbprint, tenantId, clientId, duration) {
 export async function run() {
   const tenantId = core.getInput('tenant_id');
   const clientId = core.getInput('client_id');
-  const thumbNail = core.getInput('thumbnail');
+  const thumbprint = core.getInput('thumbprint');
   const base64key = core.getInput('key');
   const password = core.getInput('password');
-  const duration = core.getInput('duration');
+  const durationInput = core.getInput('duration');
+  const duration = Math.max(parseInt(durationInput, 10), 3600);
 
-  core.info(`Getting data for "${tenantId} : ${clientId}". Expecting ${duration} seconds.`);
+  core.info(`Getting data for "${tenantId} : ${clientId}". Expecting the Upload job to take less than ${duration} seconds.`);
 
   try {
     // Decode the PFX
@@ -83,7 +85,7 @@ export async function run() {
     // const certificatePem = forge.pki.certificateToPem(cert);
 
     // Create JWT
-    const { header, payload } = createJWTHeaderAndPayload(thumbNail, tenantId, clientId, duration);
+    const { header, payload } = createJWTHeaderAndPayload(thumbprint, tenantId, clientId, duration);
     const encodedHeader = base64url(JSON.stringify(header));
     const encodedPayload = base64url(JSON.stringify(payload));
     const unsignedToken = `${encodedHeader}.${encodedPayload}`;
