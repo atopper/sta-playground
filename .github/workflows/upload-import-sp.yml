@@ -3,7 +3,7 @@ name: STA-AEMY - Upload to SharePoint
 description: |
   Uploads the import zip file to SharePoint. The zip file is downloaded from a URL and extracted. The contents are uploaded to SharePoint.
   The upload is done using the SharePoint Upload Action.
-  The action is triggered by a workflow dispatch event with inputs for the zip URL and AEMY context.
+  The action is triggered by a workflow dispatch event with inputs as follows.
 
 env:
   AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
@@ -36,12 +36,15 @@ on:
       action_url:
         description: 'The URL that shows state of the workflow as an aid for the user.'
         required: false
+      skip_assets:
+        description: 'Ignored parameter'
+        required: false
 
 permissions:
   contents: write
 
 jobs:
-  read-and-upload-import-zip:
+  read-and-upload-sharepoint-import-zip:
     runs-on: ubuntu-latest
 
     steps:
@@ -125,19 +128,19 @@ jobs:
           sudo apt-get install -y jq openssl
 
       - name: Parse mountpoint
-        id: fstab_data
+        id: mountpoint_data
         uses: ./.github/actions/sta-mountpoint
         with:
           mountpoint: ${{ github.event.inputs.root_mountpoint }}
           mountpoint_type: 'sharepoint'
 
       - name: Report if mountpoint failed
-        if: ${{ steps.fstab_data.outputs.error_message != '' }}
+        if: ${{ steps.mountpoint_data.outputs.error_message != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ steps.fstab_data.outputs.error_message }} ${{ env.ACTION_URL }}
+          message: ${{ steps.mountpoint_data.outputs.error_message }} ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
@@ -162,7 +165,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ steps.fstab_data.outputs.error_message }} ${{ env.ACTION_URL }}
+          message: ${{ steps.download-zip.outputs.error_message }} ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
@@ -184,7 +187,8 @@ jobs:
           key: ${{ env.AZURE_PRIVATE_KEY_BASE64 }}
           password: ${{ env.AZURE_PFX_PASSWORD }}
           thumbprint: ${{ env.AZURE_THUMBPRINT }}
-          duration: ${{ env.UPLOAD_DURATION }}
+          # The duration is estimated as 2 seconds per file, plus 20 seconds for the initial setup (min will be 3600).
+          duration: ${{ steps.download-zip.outputs.file_count * 2 + 20 }}
 
       - name: Report if access token failed
         if: ${{ steps.azure-auth.outputs.access_token == '' }}
@@ -209,9 +213,9 @@ jobs:
         uses: ./.github/actions/sta-sp-drive
         with:
           token: ${{ steps.azure-auth.outputs.access_token }}
-          sp_host: ${{ fromJSON(steps.fstab_data.outputs.data).host }}
-          sp_site_path: ${{ fromJSON(steps.fstab_data.outputs.data).site }}
-          sp_folder_path: ${{ fromJSON(steps.fstab_data.outputs.data).path }}
+          sp_host: ${{ fromJSON(steps.mountpoint_data.outputs.data).host }}
+          sp_site_path: ${{ fromJSON(steps.mountpoint_data.outputs.data).site }}
+          sp_folder_path: ${{ fromJSON(steps.mountpoint_data.outputs.data).path }}
 
       - name: Report if Drive id failed
         if: ${{ steps.get-drive-info.outputs.drive_id == '' }}
