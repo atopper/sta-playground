@@ -43,7 +43,7 @@ export async function run() {
   let siteId;
   try {
     // Step 1: Get Site ID
-    const site = await graphFetch(token, `/sites/${spHost}:/sites/${spSitePath}`);
+    const site = await graphFetch(token, `/sites/${spHost}/sites/${spSitePath}`);
     siteId = site.id;
     core.info(`✅ Site ID: ${site.id}`);
   } catch (error1) {
