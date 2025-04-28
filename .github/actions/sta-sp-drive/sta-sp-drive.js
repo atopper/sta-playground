@@ -13,6 +13,7 @@
 import core from '@actions/core';
 
 async function graphFetch(token, endpoint) {
+  core.info(`Fetching Graph API endpoint: https://graph.microsoft.com/v1.0${endpoint}`);
   const res = await fetch(`https://graph.microsoft.com/v1.0${endpoint}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -50,14 +51,16 @@ export async function run() {
     core.warning(`Failed get Site Id: ${error1.message}`);
   }
 
-  try {
-    // Step 2: Get the folder path
-    const folder = await graphFetch(token, `/sites/${siteId}/drive/root:${spFolderPath}`);
-    core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
-    core.info(`✅ Folder ID: ${folder.id}`);
-    core.setOutput('drive_id', folder.parentReference.driveId);
-  } catch (error2) {
-    core.warning(`Failed get folder info for ${siteId}: ${error2.message}`);
+  if (siteId) {
+    try {
+      // Step 2: Get the folder path
+      const folder = await graphFetch(token, `/sites/${siteId}/drive/root:${spFolderPath}`);
+      core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
+      core.info(`✅ Folder ID: ${folder.id}`);
+      core.setOutput('drive_id', folder.parentReference.driveId);
+    } catch (error2) {
+      core.warning(`Failed get folder info for ${siteId}: ${error2.message}`);
+    }
   }
 }
 
