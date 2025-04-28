@@ -15,7 +15,7 @@ import core from '@actions/core';
 import forge from 'node-forge';
 import crypto from 'crypto';
 
-function base64url(str) {
+function base64urlEncode(str) {
   return Buffer.from(str)
     .toString('base64')
     .replace(/\+/g, '-')
@@ -23,14 +23,20 @@ function base64url(str) {
     .replace(/=+$/, '');
 }
 
-function createJWTHeaderAndPayload(thumbprint, tenantId, clientId, duration) {
-  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/v2.0`;
+function encodeThumbprintBase64url(thumbprintHex) {
+  const bytes = forge.util.hexToBytes(thumbprintHex);
+  const base64 = forge.util.encode64(bytes);
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function createJWTHeaderAndPayload(thumbprintBase64, tenantId, clientId, duration) {
+  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
   const now = Math.floor(Date.now() / 1000);
 
   const header = {
     alg: 'RS256',
     typ: 'JWT',
-    x5t: thumbprint,
+    x5t: thumbprintBase64,
   };
 
   const payload = {
@@ -52,7 +58,8 @@ function createJWTHeaderAndPayload(thumbprint, tenantId, clientId, duration) {
 export async function run() {
   const tenantId = core.getInput('tenant_id');
   const clientId = core.getInput('client_id');
-  const thumbprint = core.getInput('thumbprint');
+  const thumbprintHex = core.getInput('thumbprint');
+  const thumbprint = encodeThumbprintBase64url(thumbprintHex);
   const base64key = core.getInput('key');
   const password = core.getInput('password');
   const durationInput = core.getInput('duration');
@@ -86,13 +93,13 @@ export async function run() {
 
     // Create JWT
     const { header, payload } = createJWTHeaderAndPayload(thumbprint, tenantId, clientId, duration);
-    const encodedHeader = base64url(JSON.stringify(header));
-    const encodedPayload = base64url(JSON.stringify(payload));
+    const encodedHeader = base64urlEncode(JSON.stringify(header));
+    const encodedPayload = base64urlEncode(JSON.stringify(payload));
     const unsignedToken = `${encodedHeader}.${encodedPayload}`;
 
     // Sign token
     const sign = crypto.createSign('RSA-SHA256');
-    sign.update(unsignedToken);
+    sign.update(unsignedToken, 'utf8');
     const signature = sign.sign(privateKeyPem, 'base64url');
     const clientAssertion = `${unsignedToken}.${signature}`;
     core.info('Token has been signed.');
@@ -114,7 +121,8 @@ export async function run() {
       body: data,
     });
     if (!response.ok) {
-      core.warning(`Failed to fetch token: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      core.warning(`Failed to fetch token: ${response.status} ${errorText}`);
     } else {
       const responseJson = await response.json();
       core.setOutput('access_token', responseJson.access_token);
