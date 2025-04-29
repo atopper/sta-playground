@@ -187,7 +187,7 @@ jobs:
             file_count=0
           fi
           duration=$((file_count * 2 + 20))
-          echo "DURATION=$duration" >> $GITHUB_ENV
+          echo "UPLOAD_DURATION=$duration" >> $GITHUB_ENV
 
       - name: Create Azure Access Token
         uses: ./.github/actions/sta-azure-helper
@@ -199,7 +199,7 @@ jobs:
           password: ${{ env.AZURE_PFX_PASSWORD }}
           thumbprint: ${{ env.AZURE_THUMBPRINT }}
           # The duration is estimated as 2 seconds per file, plus 20 seconds for the initial setup (min will be 3600).
-          duration: ${{ env.DURATION }}
+          duration: ${{ env.UPLOAD_DURATION }}
 
       - name: Report if access token failed
         if: ${{ steps.azure-auth.outputs.access_token == '' }}

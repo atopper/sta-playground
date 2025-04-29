@@ -1,11 +1,11 @@
-name: "Extract mountpoint and type"
-description: "Extracts the '/' mountpoint and determines its type"
+name: "Manage mountpoint and type"
+description: "Determine the mountpoint parts, its type and validate them."
 inputs:
   mountpoint:
-    description: "Optional mountpoint, if already provided"
-    required: false
+    description: "The root mountpoint"
+    required: true
   mountpoint_type:
-    description: "The mountpoint type to be extracted"
+    description: "The required mountpoint type"
     required: true
 outputs:
   mountpoint:

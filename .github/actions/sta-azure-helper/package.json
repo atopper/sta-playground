@@ -8,7 +8,11 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix ."
   },
-  "keywords": ["STA", "Experience Catalyst", "SharePoint"],
+  "keywords": [
+    "STA",
+    "Experience Catalyst",
+    "SharePoint"
+  ],
   "author": "Experience Catalyst",
   "license": "ISC",
   "description": "Get auth for SharePoint",
