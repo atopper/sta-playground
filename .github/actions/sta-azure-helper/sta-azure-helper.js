@@ -126,7 +126,8 @@ export async function run() {
     } else {
       const responseJson = await response.json();
       // TODO - remove this logging.
-      core.info(`Token: ${responseJson.access_token}`);
+      const junk = responseJson.access_token;
+      core.info(`junk: ${junk}`);
       core.setOutput('access_token', responseJson.access_token);
     }
   } catch (error) {
