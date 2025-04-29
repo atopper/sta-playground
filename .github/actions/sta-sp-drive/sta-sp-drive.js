@@ -13,8 +13,8 @@
 import core from '@actions/core';
 
 async function graphFetch(token, endpoint) {
-  core.info(`Fetching Graph API endpoint: https://graph.microsoft.com/v1.0${endpoint}`);
-  const res = await fetch(`https://graph.microsoft.com/v1.0${endpoint}`, {
+  core.info(`Fetching Graph API endpoint: https://graph.microsoft.com/v1.0${endpoint}/`);
+  const res = await fetch(`https://graph.microsoft.com/v1.0${endpoint}/`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
@@ -46,7 +46,7 @@ export async function run() {
     // Step 1: Get Site ID
     const site = await graphFetch(token, `/sites/${spHost}/sites/${spSitePath}`);
     siteId = site.id;
-    core.info(`✅ Site ID: ${site.id}`);
+    core.info(`✅ Site ID: ${siteId}`);
   } catch (error1) {
     core.warning(`Failed get Site Id: ${error1.message}`);
   }
