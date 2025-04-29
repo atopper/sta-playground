@@ -1,5 +1,5 @@
-name: "Upload to Sharepoint"
-description: "Upload files to Sharepoint"
+name: "Upload to SharePoint"
+description: "Upload files to SharePoint"
 author: "Experience Catalyst"
 inputs:
   ACCESS_TOKEN:

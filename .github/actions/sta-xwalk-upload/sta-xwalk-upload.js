@@ -12,7 +12,6 @@
 
 import core from '@actions/core';
 import { spawn } from 'child_process';
-import forge from 'node-forge';
 import path from 'path';
 
 async function runUpload(
@@ -68,15 +67,13 @@ async function runUpload(
  * @returns {Promise<void>}
  */
 export async function run() {
-  const token64 = core.getInput('upload_token');
+  const token = core.getInput('upload_token');
   const target = core.getInput('root_mountpoint');
   const zipPath = core.getInput('zip_path');
   const zipName = core.getInput('zip_name');
   const skipAssets = core.getInput('skip_assets');
 
   try {
-    const token = forge.util.decode64(token64);
-
     const fullZipPath = path.join(zipPath, zipName || 'xwalk-index.zip');
 
     await runUpload(

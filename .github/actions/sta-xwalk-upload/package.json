@@ -13,7 +13,6 @@
   "license": "ISC",
   "description": "Upload the Import Zip file for XWalk",
   "dependencies": {
-    "@actions/core": "^1.11.1",
-    "node-forge": "^1.3.1"
+    "@actions/core": "^1.11.1"
   }
 }

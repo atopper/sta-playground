@@ -1,11 +1,11 @@
 name: STA-AEMY - Upload for XWalk
 
 description: |
-  Uploads the import zip file for XWalk. The import zip file is downloaded from a URL and extracted and upload for XWalk.
-  The action is triggered by a workflow dispatch event with inputs for the zip URL and AEMY context.
+  Uploads the import zip file for XWalk. The import zip file is downloaded from a URL and extracted and uploaded for XWalk.
+  The action is triggered by a workflow dispatch event with inputs as follows.
 
 env:
-  XWALK_UPLOAD_TOKEN_BASE64: ${{ secrets.XWALK_UPLOAD_TOKEN_BASE64 }}
+  XWALK_UPLOAD_TOKEN: ${{ secrets.XWALK_UPLOAD_TOKEN }}
 on:
   workflow_dispatch:
     inputs:
@@ -54,20 +54,13 @@ jobs:
           
           # Required parameters
           missing_vars=""
-          bad_format=""
       
-          if [ -z "${{ env.XWALK_UPLOAD_TOKEN_BASE64 }}" ]; then
-            missing_vars+="JS_LF- XWALK_UPLOAD_TOKEN_BASE64 "
-          elif ! echo "${{ env.XWALK_UPLOAD_TOKEN_BASE64 }}" | base64 --decode > /dev/null 2>&1; then
-            bad_format+="JS_LF- XWALK_UPLOAD_TOKEN_BASE64"
+          if [ -z "${{ env.XWALK_UPLOAD_TOKEN }}" ]; then
+            missing_vars+="JS_LF- XWALK_UPLOAD_TOKEN (secret) "
           fi
 
           if [ -n "$missing_vars" ]; then
             errorMessage="❌ The following variables are not set in your GitHub repo: $missing_vars JS_LF"
-            echo "errorMessage=$errorMessage" >> $GITHUB_ENV
-          fi
-          if [ -n "$bad_format" ]; then
-            errorMessage+="❌ The following variables in your GitHub repo are in the wrong format: $bad_format"
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
 

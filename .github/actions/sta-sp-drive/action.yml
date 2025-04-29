@@ -6,10 +6,10 @@ inputs:
     description: "The SP access token"
     required: true
   sp_host:
-    description: "The host so Sharepoint (i.e. adobe.sharepoint.com)"
+    description: "The host of SharePoint (i.e. adobe.sharepoint.com)"
     required: true
   sp_site_path:
-    description: "The site path to the Sharepoint site (i.e. /sites/AEMDemos)"
+    description: "The site path to the SharePoint site (i.e. /sites/AEMDemos)"
     required: true
   sp_folder_path:
     description: "The folder path to upload the file to (i.e. /Shared%20Documents/sites/my-site)"
