@@ -1,8 +1,8 @@
 mountpoints:
-  /: https://adobe.sharepoint.com/:f:/r/sites/AEMDemos/Shared%20Documents/sites/esaas-demos/andrew-top
-
-mountpoints2:
   /:
     url: "https://author-p141866-e1455422.adobeaemcloud.com/bin/franklin.delivery/top/xwalk-demo/main"
     type: "markup"
     suffix: ".html"
+
+mountpoints2:
+  /: https://adobe.sharepoint.com/:f:/r/sites/AEMDemos/Shared%20Documents/sites/esaas-demos/andrew-top
