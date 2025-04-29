@@ -125,6 +125,8 @@ export async function run() {
       core.warning(`Failed to fetch token: ${response.status} ${errorText}`);
     } else {
       const responseJson = await response.json();
+      // TODO - remove this logging.
+      core.info(`Token: ${responseJson.access_token}`);
       core.setOutput('access_token', responseJson.access_token);
     }
   } catch (error) {
