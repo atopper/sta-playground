@@ -56,7 +56,7 @@ jobs:
           
           # Optional parameters
           if [ -n "${{ github.event.inputs.action_url }}" ]; then
-            ACTION_URL="JS_LFJS_LF🕵 See the Action URL to check the progress or the results of the workflow: ${{ github.event.inputs.action_url }}"
+            ACTION_URL="JS_LFJS_LF🕵 See the Action URL to check the progress/results of the workflow: ${{ github.event.inputs.action_url }}"
             echo "ACTION_URL=$ACTION_URL" >> $GITHUB_ENV
           fi
           
@@ -103,6 +103,15 @@ jobs:
           npm install
           cd ../sta-azure-helper
           npm install
+
+      - name: Report upload success
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: SharePoint upload succeeded. Uploaded ${{ env.UPLOAD_SUCCESSES }} files.
+          status_type: ok
+          agent_name: upload-import-sp
 
       - name: Report if inputs are invalid
         if: ${{ env.errorMessage != '' }}
@@ -295,7 +304,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Upload succeeded. Uploaded ${{ env.UPLOAD_SUCCESSES }} files.
+          message: SharePoint upload succeeded. Uploaded ${{ env.UPLOAD_SUCCESSES }} files.
           status_type: ok
           agent_name: upload-import-sp
 
