@@ -104,15 +104,6 @@ jobs:
           cd ../sta-azure-helper
           npm install
 
-      - name: Report upload success
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: SharePoint upload succeeded. Uploaded ${{ env.UPLOAD_SUCCESSES }} files.
-          status_type: ok
-          agent_name: upload-import-sp
-
       - name: Report if inputs are invalid
         if: ${{ env.errorMessage != '' }}
         uses: ./.github/actions/sta-status

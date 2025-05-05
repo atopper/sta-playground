@@ -71,17 +71,22 @@ export async function run() {
   const target = core.getInput('root_mountpoint');
   const zipPath = core.getInput('zip_path');
   const zipName = core.getInput('zip_name');
-  const skipAssets = core.getInput('skip_assets');
+  const skipAssets = core.getInput('skip_assets') === 'true';
 
   try {
+    const url = new URL(target);
+    const hostTarget = `${url.origin}/`;
+    const assetMappingPath = `${zipPath}/asset-mapping.json`;
     const fullZipPath = path.join(zipPath, zipName || 'xwalk-index.zip');
+
+    core.info(`✅ Uploading "${fullZipPath}" and "${assetMappingPath}" to ${hostTarget}. Assets will ${skipAssets ? 'not ' : ''}be uploaded.`);
 
     await runUpload(
       fullZipPath,
-      `${zipPath}/asset-mapping.json`,
-      target,
+      assetMappingPath,
+      hostTarget,
       token,
-      skipAssets === 'true',
+      skipAssets,
     );
     core.info('✅ Upload completed successfully.');
   } catch (error) {

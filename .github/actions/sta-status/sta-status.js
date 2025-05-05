@@ -18,15 +18,11 @@ function getStatusCallParameters(
   statusType,
   message,
 ) {
-  let body = JSON.stringify({
-    context,
-    response: {
-      message: message.replaceAll('JS_LF', '\n'),
-    },
-  });
-
+  // TODO Find magic encoding for \\\\\\n instead of JS_LF.
+  const messageLF = message.replaceAll('JS_LF', '\n');
   const headers = new Headers();
   headers.set('x-api-key', apiKey);
+  let body;
 
   if (statusType === 'ok') {
     const formData = new FormData();
@@ -34,11 +30,18 @@ function getStatusCallParameters(
     const contextBlob = new Blob([JSON.stringify(context)], { type: 'application/json' });
     formData.append('context', contextBlob, 'context.json');
 
-    // add message to form data
-    const responseBlob = new Blob([JSON.stringify({ message })], { type: 'application/json' });
-    formData.append('response', responseBlob, 'response.json');
+    // Add message as "file" information to have the coordinator/Upload handle it.
+    const fileBlob = new Blob([JSON.stringify({ message: messageLF })], { type: 'application/json' });
+    formData.append('file', fileBlob, 'message.json');
+
     body = formData;
   } else {
+    body = JSON.stringify({
+      context,
+      response: {
+        message: messageLF,
+      },
+    });
     headers.set('Content-Type', 'application/json');
   }
 
