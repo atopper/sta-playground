@@ -13,8 +13,8 @@
 import core from '@actions/core';
 
 async function graphFetch(token, endpoint) {
-  core.info(`Fetching Graph API endpoint: https://graph.microsoft.com/v1.0${endpoint}/`);
-  const res = await fetch(`https://graph.microsoft.com/v1.0${endpoint}/`, {
+  core.info(`Fetching Graph API endpoint: https://graph.microsoft.com/v1.0${endpoint}`);
+  const res = await fetch(`https://graph.microsoft.com/v1.0${endpoint}`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
