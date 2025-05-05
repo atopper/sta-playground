@@ -53,15 +53,29 @@ export async function run() {
   }
 
   if (siteId) {
-    try {
-      // Step 2: Get the folder path
-      const folder = await graphFetch(token, `/sites/${siteId}/drive/root:/${decodedFolderPath}`);
-      core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
-      core.info(`✅ Folder ID: ${folder.id}`);
-      core.setOutput('drive_id', folder.parentReference.driveId);
-      core.setOutput('folder_id', folder.id);
-    } catch (error2) {
-      core.warning(`Failed get folder info for ${siteId}: ${error2.message}`);
+    const searchQuery = 'andrew-top';
+    const results = await graphFetch(token, `/sites/${siteId}/drive/root/search(q='${searchQuery}')`);
+    const targetFolders = results.value.filter((item) => item.folder);
+    for (const item of targetFolders) {
+      core.info(`Found: ${item.name}`);
+      core.info(`Path: ${item.parentReference.path}`);
+      core.info(`Drive ID: ${item.parentReference.driveId}`);
+      core.info(`Item ID: ${item.id}`);
+    }
+    if (targetFolders.length === 1) {
+      const targetFolder = targetFolders[0];
+      const path = `${targetFolder.parentReference.path}/${targetFolder.name}`; // Full path from root
+      const cleanPath = path.replace('/drive/root:', '');
+      try {
+        // Step 2: Get the folder path
+        const folder = await graphFetch(token, `/sites/${siteId}/drive/root:/${cleanPath}`);
+        core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
+        core.info(`✅ Folder ID: ${folder.id}`);
+        core.setOutput('drive_id', folder.parentReference.driveId);
+        core.setOutput('folder_id', folder.id);
+      } catch (error2) {
+        core.warning(`Failed get folder info for ${siteId}: ${error2.message}`);
+      }
     }
   }
 }
