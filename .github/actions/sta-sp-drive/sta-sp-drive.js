@@ -38,8 +38,9 @@ export async function run() {
   const spHost = core.getInput('sp_host'); // i.e. adobe.sharepoint.com
   const spSitePath = core.getInput('sp_site_path'); // i.e. AEMDemos
   const spFolderPath = core.getInput('sp_folder_path'); // i.e. Shared%20Documents/sites/my-site/...
+  const decodedFolderPath = decodeURIComponent(spFolderPath); // decode the spaces, etc.
 
-  core.info(`Getting data for "${spHost} : ${spSitePath} : ${spFolderPath}".`);
+  core.info(`Getting data for "${spHost} : ${spSitePath} : ${decodedFolderPath}".`);
 
   let siteId;
   try {
@@ -54,7 +55,7 @@ export async function run() {
   if (siteId) {
     try {
       // Step 2: Get the folder path
-      const folder = await graphFetch(token, `/sites/${siteId}/drive/root:/${spFolderPath}`);
+      const folder = await graphFetch(token, `/sites/${siteId}/drive/root:/${decodedFolderPath}`);
       core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
       core.info(`✅ Folder ID: ${folder.id}`);
       core.setOutput('drive_id', folder.parentReference.driveId);
