@@ -41,7 +41,7 @@ on:
         required: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   read-and-upload-sharepoint-import-zip:

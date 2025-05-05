@@ -14,5 +14,5 @@ outputs:
   error_message:
     description: "Error message if the operation could not be completed"
 runs:
-  using: "node23"
+  using: "node20"
   main: "sta-import-zip.js"

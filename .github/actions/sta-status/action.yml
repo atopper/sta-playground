@@ -19,5 +19,5 @@ inputs:
     description: "The agent name to help identify things in logs"
     required: false
 runs:
-  using: 'node23'
+  using: 'node20'
   main: 'sta-status.js'
