@@ -30,6 +30,17 @@ async function graphFetch(token, endpoint) {
   return res.json();
 }
 
+async function fetchAndFilterFolders(token, siteId, folderName) {
+  // Step 1: Fetch all children from the root (or any parent folder)
+  const results = await graphFetch(token, `/sites/${siteId}/drive/root/children`);
+
+  // Step 2: Filter the results to find the folder with the exact name
+  const matchingFolders = results.value.filter((item) => item.folder && item.name === folderName);
+
+  // Step 3: Return the matching folder(s)
+  return matchingFolders;
+}
+
 /**
  * Get the site and drive ID for a SharePoint site.
  * @returns {Promise<void>}
@@ -55,17 +66,16 @@ export async function run() {
 
   if (siteId) {
     const folderName = encodeURIComponent('andrew-top');
-    const results = await graphFetch(token, `/sites/${siteId}/drive/root/children?$filter=name eq '${folderName}' and folder ne null`);
-    const targetFolders = results.value.filter((item) => item.folder);
-    for (const item of targetFolders) {
+    const folders = await fetchAndFilterFolders(token, siteId, folderName);
+    for (const item of folders) {
       core.info(`Found: ${item.name}`);
       core.info(`Path: ${item.parentReference.path}`);
       core.info(`Drive ID: ${item.parentReference.driveId}`);
       core.info(`Item ID: ${item.id}`);
     }
-    if (targetFolders.length === 1) {
+    if (folders.length === 1) {
       try {
-        const targetFolder = targetFolders[0];
+        const targetFolder = folders[0];
         const path = `${targetFolder.parentReference.path}/${targetFolder.name}`; // Full path from root
         const cleanPath = path.replace('/drive/root:', '');
         core.info(`✅ Clean Path: ${cleanPath}`);
