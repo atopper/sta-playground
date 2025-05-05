@@ -30,17 +30,6 @@ async function graphFetch(token, endpoint) {
   return res.json();
 }
 
-async function fetchAndFilterFolders(token, siteId, folderName) {
-  // Step 1: Fetch all children from the root (or any parent folder)
-  const results = await graphFetch(token, `/sites/${siteId}/drive/root/children`);
-
-  // Step 2: Filter the results to find the folder with the exact name
-  const matchingFolders = results.value.filter((item) => item.folder && item.name === folderName);
-
-  // Step 3: Return the matching folder(s)
-  return matchingFolders;
-}
-
 /**
  * Get the site and drive ID for a SharePoint site.
  * @returns {Promise<void>}
@@ -65,29 +54,41 @@ export async function run() {
   }
 
   if (siteId) {
-    const folderName = encodeURIComponent('andrew-top');
-    const folders = await fetchAndFilterFolders(token, siteId, folderName);
-    for (const item of folders) {
-      core.info(`Found: ${item.name}`);
-      core.info(`Path: ${item.parentReference.path}`);
-      core.info(`Drive ID: ${item.parentReference.driveId}`);
-      core.info(`Item ID: ${item.id}`);
-    }
-    if (folders.length === 1) {
-      try {
-        const targetFolder = folders[0];
-        const path = `${targetFolder.parentReference.path}/${targetFolder.name}`; // Full path from root
-        const cleanPath = path.replace('/drive/root:', '');
-        core.info(`✅ Clean Path: ${cleanPath}`);
+    try {
+      // Step 2: Get the folder path
+      const folder = await graphFetch(token, `/sites/${siteId}/drive/root:${decodedFolderPath}`);
+      core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
+      core.info(`✅ Folder ID: ${folder.id}`);
+      core.setOutput('drive_id', folder.parentReference.driveId);
+      core.setOutput('folder_id', folder.id);
+    } catch (error2) {
+      core.info(`Failed get folder info for ${siteId} / ${spFolderPath}: ${error2.message}. Trying to find it...`);
 
-        // Step 2: Get the folder path
-        const folder = await graphFetch(token, `/sites/${siteId}/drive/root:/${cleanPath}`);
-        core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
-        core.info(`✅ Folder ID: ${folder.id}`);
-        core.setOutput('drive_id', folder.parentReference.driveId);
-        core.setOutput('folder_id', folder.id);
-      } catch (error2) {
-        core.warning(`Failed get folder info for ${siteId}: ${error2.message}`);
+      const folderName = decodedFolderPath.split('/').pop();
+      const hits = await graphFetch(token, `/sites/${siteId}/drive/root/search(q=${folderName})`);
+      const folders = hits.value.filter((item) => item.folder);
+      for (const item of folders) {
+        core.info(`Found: ${item.name}`);
+        core.info(`Path: ${item.parentReference.path}`);
+        core.info(`Drive ID: ${item.parentReference.driveId}`);
+        core.info(`Item ID: ${item.id}`);
+      }
+      if (folders.length === 1) {
+        try {
+          const targetFolder = folders[0];
+          const path = `${targetFolder.parentReference.path}/${targetFolder.name}`; // Full path from root
+          const cleanPath = path.replace('/drive/root:', '');
+          core.info(`✅ Clean Path: ${cleanPath}`);
+
+          // Step 2: Get the folder path
+          const folder = await graphFetch(token, `/sites/${siteId}/drive/root:/${cleanPath}`);
+          core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
+          core.info(`✅ Folder ID: ${folder.id}`);
+          core.setOutput('drive_id', folder.parentReference.driveId);
+          core.setOutput('folder_id', folder.id);
+        } catch (error3) {
+          core.warning(`Failed get folder info for ${siteId}: ${error3.message}`);
+        }
       }
     }
   }
