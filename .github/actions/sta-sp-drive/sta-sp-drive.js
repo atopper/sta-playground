@@ -62,10 +62,11 @@ export async function run() {
       core.setOutput('drive_id', folder.parentReference.driveId);
       core.setOutput('folder_id', folder.id);
     } catch (error2) {
-      core.info(`Failed get folder info for ${siteId} / ${spFolderPath}: ${error2.message}. Trying to find it...`);
+      core.info(`Failed get folder info for ${siteId} / ${decodedFolderPath}: ${error2.message}. Trying to find it...`);
 
       const folderName = decodedFolderPath.split('/').pop();
-      const hits = await graphFetch(token, `/sites/${siteId}/drive/root/search(q=${folderName})`);
+      const query = encodeURIComponent(`q='${folderName}'`);
+      const hits = await graphFetch(token, `/sites/${siteId}/drive/root/search(${query})`);
       const folders = hits.value.filter((item) => item.folder);
       for (const item of folders) {
         core.info(`Found: ${item.name}`);
