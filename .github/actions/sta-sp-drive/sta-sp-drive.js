@@ -53,7 +53,7 @@ export async function run() {
   }
 
   if (siteId) {
-    const searchQuery = 'andrew-top';
+    const searchQuery = encodeURIComponent('andrew-top');
     const results = await graphFetch(token, `/sites/${siteId}/drive/root/search(q=${searchQuery})`);
     const targetFolders = results.value.filter((item) => item.folder);
     for (const item of targetFolders) {
