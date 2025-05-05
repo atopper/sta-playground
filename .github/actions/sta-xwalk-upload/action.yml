@@ -19,5 +19,5 @@ inputs:
     required: false
     default: 'false'
 runs:
-  using: 'node23'
+  using: 'node20'
   main: 'sta-xwalk-upload.js'

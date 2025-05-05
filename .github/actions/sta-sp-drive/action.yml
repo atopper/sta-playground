@@ -18,5 +18,5 @@ outputs:
   drive_id:
     description: "The ID of the drive"
 runs:
-  using: 'node23'
+  using: 'node20'
   main: 'sta-sp-drive.js'
