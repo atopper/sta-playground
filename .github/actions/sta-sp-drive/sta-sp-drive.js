@@ -23,6 +23,7 @@ async function graphFetch(token, endpoint) {
 
   if (!res.ok) {
     const errorText = await res.text();
+    core.warning(`Graph API error ${res.status}: ${errorText}`);
     throw new Error(`Graph API error ${res.status}: ${errorText}`);
   }
 
@@ -63,10 +64,12 @@ export async function run() {
       core.info(`Item ID: ${item.id}`);
     }
     if (targetFolders.length === 1) {
-      const targetFolder = targetFolders[0];
-      const path = `${targetFolder.parentReference.path}/${targetFolder.name}`; // Full path from root
-      const cleanPath = path.replace('/drive/root:', '');
       try {
+        const targetFolder = targetFolders[0];
+        const path = `${targetFolder.parentReference.path}/${targetFolder.name}`; // Full path from root
+        const cleanPath = path.replace('/drive/root:', '');
+        core.info(`✅ Clean Path: ${cleanPath}`);
+
         // Step 2: Get the folder path
         const folder = await graphFetch(token, `/sites/${siteId}/drive/root:/${cleanPath}`);
         core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
