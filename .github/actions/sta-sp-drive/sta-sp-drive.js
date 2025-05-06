@@ -54,8 +54,8 @@ async function searchByDrive(token, siteId, drive, folderPath) {
       const driveId = driveData.value[0].id;
       core.info(`Drive "${drive}" found in site with id ${driveId}.`);
       try {
-        const firstFolder = folderPath.split('/').shift();
-        const folder = await graphFetch(token, `/drives/${driveId}/root:/${firstFolder}`);
+        const lastFolder = folderPath.split('/').pop();
+        const folder = await graphFetch(token, `/drives/${driveId}/root:/${lastFolder}`);
         return {
           folderId: folder.id,
           driveId,
@@ -80,7 +80,7 @@ async function searchByDrive(token, siteId, drive, folderPath) {
  */
 async function searchFolderByName(token, siteId, folderPath) {
   const folderName = folderPath.split('/').pop();
-  const endpoint = `/sites/${siteId}/drive/root/search(q='${folderName}')`;
+  const endpoint = `/sites/${siteId}/drive/root:/search(q='${folderName}')`;
   const searchResults = await graphFetch(token, endpoint);
   if (!searchResults.value || searchResults.value.length === 0) {
     core.warning(`Folder "${folderName}" not found.`);
@@ -162,7 +162,13 @@ export async function run() {
   if (siteId) {
     try {
       // Step 2: Assume folder path is actually the folder path.
-      folder = await graphFetch(token, `/sites/${siteId}/drive/root:${decodedFolderPath}`);
+      const folderSearch = await graphFetch(token, `/sites/${siteId}/drive/root:${decodedFolderPath}`);
+      if (folderSearch) {
+        folder = {
+          folderId: folderSearch.id,
+          driveId: folderSearch.parentReference.driveId,
+        };
+      }
     } catch (error2) {
       core.info(`Did not find folder info for ${siteId} / ${decodedFolderPath}: ${error2.message}. Trying to find it by digging in a little...`);
 
@@ -175,10 +181,10 @@ export async function run() {
     }
 
     if (folder) {
-      core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
-      core.info(`✅ Folder ID: ${folder.id}`);
-      core.setOutput('drive_id', folder.parentReference.driveId);
-      core.setOutput('folder_id', folder.id);
+      core.info(`✅ Drive ID: ${folder.driveId}`);
+      core.info(`✅ Folder ID: ${folder.folderId}`);
+      core.setOutput('drive_id', folder.driveId);
+      core.setOutput('folder_id', folder.folderId);
     } else {
       core.setOutput('error_message', '❌ Error: Failed to get drive and/or folder Id.');
     }
