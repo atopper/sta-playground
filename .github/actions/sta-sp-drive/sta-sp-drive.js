@@ -52,10 +52,17 @@ async function searchByDrive(token, siteId, drive, folderPath) {
       }
     } else {
       const driveId = driveData.value[0].id;
-      core.info(`Drive "${drive}" found in site with id ${driveId}.`);
+      core.info(`Drive "${drive}" found in site with id ${siteId}.`);
       try {
-        const firstFolder = folderPath.split('/').shift();
-        const folder = await graphFetch(token, `/drives/${driveId}/root:/${firstFolder}`);
+        // const parts = folderPath.split('/');
+        // const first = parts.shift();
+        const folder = await graphFetch(token, `/drives/${driveId}/root:/${folderPath}`);
+        // for (const sub of parts) {
+        //   const children = await graphFetch(token,
+        //         `/sites/${siteId}/drives/${driveId}/items/${rootFolder.id}/children`);
+        //   const folder = children.value.find((item) => item.name === sub);
+        // }
+
         return {
           folderId: folder.id,
           driveId,
