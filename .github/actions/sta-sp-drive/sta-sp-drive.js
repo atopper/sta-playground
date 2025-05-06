@@ -54,8 +54,8 @@ async function searchByDrive(token, siteId, drive, folderPath) {
       const driveId = driveData.value[0].id;
       core.info(`Drive "${drive}" found in site with id ${driveId}.`);
       try {
-        const lastFolder = folderPath.split('/').pop();
-        const folder = await graphFetch(token, `/drives/${driveId}/root:/search(q='${lastFolder}')`);
+        const firstFolder = folderPath.split('/').shift();
+        const folder = await graphFetch(token, `/drives/${driveId}/root:/${firstFolder}`);
         return {
           folderId: folder.id,
           driveId,
