@@ -38,7 +38,7 @@ async function graphFetch(token, endpoint) {
  * @param folderPath
  * @returns {Promise<{driveId, folderId}|undefined>}
  */
-async function searchByDriveId(token, siteId, drive, folderPath) {
+async function searchByDrive(token, siteId, drive, folderPath) {
   let driveData;
   try {
     driveData = await graphFetch(token, `/sites/${siteId}/drives?search=${drive}`);
@@ -47,6 +47,9 @@ async function searchByDriveId(token, siteId, drive, folderPath) {
       core.warning(`Drive "${drive}" not found in site.`);
     } else if (driveData.length !== 1) {
       core.warning(`Multiple drives with name "${drive}" found in site.`);
+      for (const drv of driveData.value) {
+        core.info(`Drive ID: ${drv.id}, Name: ${drv.name}`);
+      }
     } else {
       const driveId = driveData.value[0].id;
       core.info(`Drive "${drive}" found in site with id ${driveId}.`);
@@ -112,7 +115,7 @@ async function findDriveAndFolderId(token, siteId, folderName) {
   if (parts.length === 2) {
     const drive = parts[0];
     const path = parts[1];
-    const byDriveId = await searchByDriveId(token, siteId, drive, path);
+    const byDriveId = await searchByDrive(token, siteId, drive, path);
     if (byDriveId) {
       return byDriveId;
     }
@@ -160,7 +163,7 @@ export async function run() {
       // Step 2: Assume folder path is actually the folder path.
       folder = await graphFetch(token, `/sites/${siteId}/drive/root:${decodedFolderPath}`);
     } catch (error2) {
-      core.info(`Failed to get folder info for ${siteId} / ${decodedFolderPath}: ${error2.message}. Trying to find it...`);
+      core.info(`Did not find folder info for ${siteId} / ${decodedFolderPath}: ${error2.message}. Trying to find it by digging in a little...`);
 
       // Folder path is a link, so try to find the drive id that it represents.
       try {
