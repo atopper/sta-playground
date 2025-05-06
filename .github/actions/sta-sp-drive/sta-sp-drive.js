@@ -167,10 +167,15 @@ export async function run() {
   let driveId;
   try {
     const driveResponse = await graphFetch(token, `/sites/${siteId}/drives`);
+    core.info(`✅ Found ${driveResponse.value.length} drives in site ${siteId}.`);
     const sharedDocumentsDrive = driveResponse.value.find((dr) => dr.name === requestedDrive);
     if (sharedDocumentsDrive) {
       driveId = sharedDocumentsDrive.id;
       core.info(`✅ Found ${requestedDrive} with a drive Id of ${driveId}`);
+    }
+    if (!driveId && driveResponse.value.length === 1 && requestedDrive === 'Documents') {
+      driveId = sharedDocumentsDrive.id;
+      core.info(`✅ Found default drive 'Documents' with a drive Id of ${driveId}`);
     }
   } catch (driveError) {
     core.warning(`Failed to get Drive Id: ${driveError.message}`);
