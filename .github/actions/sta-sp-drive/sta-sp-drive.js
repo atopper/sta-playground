@@ -139,7 +139,7 @@ async function findDriveAndFolderId(token, siteId, folderPath) {
 
 async function getFolderByPath(token, driveId, folderPath) {
   const segments = folderPath.split('/'); // break the path into parts
-  if (segments[0] === 'Documents' || segments[0] === 'Shared Documents') {
+  if (segments[0] === 'Documents' || segments[0] === 'Shared%20Documents') {
     segments.shift();
   }
   let currentId = 'root'; // start at root
