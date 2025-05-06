@@ -187,8 +187,7 @@ export async function run() {
   let folder;
   if (siteId && driveId) {
     try {
-      // Step 2: Assume folder path is actually the folder path.
-      const folderData = await graphFetch(token, `/drives/${driveId}/root:${decodedFolderPath}`);
+      const folderData = await graphFetch(token, `/drives/${driveId}/root:/${decodedFolderPath}`);
       if (folderData) {
         folder = {
           folderId: folderData.id,
