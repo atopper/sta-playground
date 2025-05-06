@@ -91,7 +91,7 @@ async function searchByDrive(token, siteId, drive, folderPath) {
  */
 async function fetchFolderByPath(token, siteId, folderPath) {
   const folderName = folderPath.split('/').pop();
-  const endpoint = `/sites/${siteId}/drive/root:${folderName}`;
+  const endpoint = `/sites/${siteId}/drive/root:/${folderName}`;
   const searchResults = await graphFetch(token, endpoint);
   if (!searchResults.value || searchResults.value.length === 0) {
     core.warning(`Folder "${folderName}" not found.`);
@@ -187,7 +187,8 @@ export async function run() {
   let folder;
   if (siteId && driveId) {
     try {
-      const folderData = await graphFetch(token, `/drives/${driveId}/root:/${decodedFolderPath}`);
+      // Use the origin encoded path.
+      const folderData = await graphFetch(token, `/drives/${driveId}/root:/${spFolderPath}`);
       if (folderData) {
         folder = {
           folderId: folderData.id,
