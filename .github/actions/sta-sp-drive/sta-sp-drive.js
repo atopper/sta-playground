@@ -151,9 +151,9 @@ async function getFolderByPath(token, driveId, folderPath) {
       const url = `/drives/${driveId}/root:${currentPath}`;
       const result = await graphFetch(token, url);
       currentId = result.id;
-      core.info(`✅ Found: ${currentPath} (id: ${currentId})`);
+      core.info(`✔️ Found: ${currentPath} (id: ${currentId})`);
     } catch (err) {
-      core.warning(`❌ Segment not found: ${currentPath}`);
+      core.warning(`Segment not found: ${currentPath}`);
       return null;
     }
   }
@@ -182,7 +182,7 @@ export async function run() {
     // Step 1: Get Site ID
     const site = await graphFetch(token, `/sites/${spHost}:/sites/${spSitePath}`);
     siteId = site.id;
-    core.info(`✅ Site ID: ${siteId}`);
+    core.info(`✔️ Site ID: ${siteId}`);
   } catch (siteError) {
     core.warning(`Failed to get Site Id: ${siteError.message}`);
     core.setOutput('error_message', `❌ Error: Failed to get Site Id: ${siteError.message}`);
@@ -190,19 +190,19 @@ export async function run() {
   }
 
   // Now find the (root) drive id.
-  const requestedDrive = decodedFolderPath.split('/').shift();
+  const rootDrive = decodedFolderPath.split('/').shift();
   let driveId;
   try {
     const driveResponse = await graphFetch(token, `/sites/${siteId}/drives`);
-    core.info(`✅ Found ${driveResponse.value.length} drives in site ${siteId}.`);
-    const sharedDocumentsDrive = driveResponse.value.find((dr) => dr.name === requestedDrive);
+    core.info(`✔️ Found ${driveResponse.value.length} drives in site ${siteId}.`);
+    const sharedDocumentsDrive = driveResponse.value.find((dr) => dr.name === rootDrive);
     if (sharedDocumentsDrive) {
       driveId = sharedDocumentsDrive.id;
-      core.info(`✅ Found ${requestedDrive} with a drive Id of ${driveId}`);
+      core.info(`✔️ Found ${rootDrive} with a drive Id of ${driveId}`);
     }
     if (!driveId && driveResponse?.value.length === 1 && driveResponse.value[0].name === 'Documents') {
       driveId = driveResponse.value[0].id;
-      core.info(`✅ Found default drive 'Documents' with a drive Id of ${driveId}`);
+      core.info(`✔️ Found default drive 'Documents' with a drive Id of ${driveId}`);
     }
   } catch (driveError) {
     core.warning(`Failed to get Drive Id: ${driveError.message}`);
@@ -214,7 +214,7 @@ export async function run() {
   let folder;
   if (siteId && driveId) {
     try {
-      folder = getFolderByPath(token, driveId, spFolderPath);
+      folder = await getFolderByPath(token, driveId, spFolderPath);
       if (!folder) {
         // Use the origin encoded path.
         const folderData = await graphFetch(token, `/drives/${driveId}/root:/${spFolderPath}`);
