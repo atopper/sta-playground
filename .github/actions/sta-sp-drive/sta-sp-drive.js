@@ -30,41 +30,101 @@ async function graphFetch(token, endpoint) {
   return res.json();
 }
 
-async function findFolderId(token, siteId, fullPath) {
-  const parts = fullPath.split('/').filter(Boolean);
-  let currentPath = '';
-  let folderData = null;
+/**
+ * Find the drive id of the drive provided, and find the folder within it.
+ * @param token
+ * @param siteId
+ * @param drive
+ * @param folderPath
+ * @returns {Promise<{driveId, folderId}|undefined>}
+ */
+async function searchByDriveId(token, siteId, drive, folderPath) {
+  let driveData;
+  try {
+    driveData = await graphFetch(token, `/sites/${siteId}/drives?search=${drive}`);
 
-  for (const part of parts) {
-    const endpoint = `/sites/${siteId}/drive/root:${currentPath}/${part}`;
-    try {
-      const nextAttempt = await graphFetch(token, endpoint);
-
-      // Sanity check: make sure it's a folder
-      if (!folderData.folder) {
-        core.warning(`"${part}" exists but is not a folder. Skipping...`);
-      } else {
-        core.info(`Found folder "${part}" with path "${nextAttempt.parentReference.path}"`);
-        folderData = nextAttempt.value[0] || folderData;
-        currentPath += `/${nextAttempt.parentReference.path}`;
+    if (!driveData) {
+      core.warning(`Drive "${drive}" not found in site.`);
+    } else if (driveData.length !== 1) {
+      core.warning(`Multiple drives with name "${drive}" found in site.`);
+    } else {
+      const driveId = driveData.value[0].id;
+      core.info(`Drive "${drive}" found in site with id ${driveId}.`);
+      try {
+        const folder = await graphFetch(token, `/drives/${driveId}/root:${folderPath}`);
+        return {
+          folderId: folder.id,
+          driveId,
+        };
+      } catch (e) {
+        core.warning(`Could not find path "${folderPath}" in drive id ${driveId}.`);
       }
-    } catch (e) {
-      core.info(`Could not find a drive id for "${part}". Trying the next one...`);
+    }
+  } catch (e) {
+    core.warning(`Could not find drive id of "${drive}".`);
+  }
+
+  return undefined;
+}
+
+/**
+ * Search for a folder with the provided name.
+ * @param token
+ * @param siteId
+ * @param folderPath
+ * @returns {Promise<undefined|{driveId: *, folderId}>}
+ */
+async function searchFolderByName(token, siteId, folderPath) {
+  const folderName = folderPath.split('/').pop();
+  const endpoint = `/sites/${siteId}/drive/root/search(q='${folderName}')`;
+  const searchResults = await graphFetch(token, endpoint);
+  if (!searchResults.value || searchResults.value.length === 0) {
+    core.warning(`Folder "${folderName}" not found.`);
+    return undefined;
+  }
+
+  // Filter results to ensure it's a folder
+  const folder = searchResults.value.filter((item) => item.folder);
+  if (!folder || folder.length === 0) {
+    core.warning(`No folder found with the name "${folderName}".`);
+    return undefined;
+  }
+  if (folder.length > 1) {
+    core.warning(`Multiple folders found with the name "${folderName}".`);
+    return undefined;
+  }
+  return {
+    folderId: folder[0].id,
+    driveId: folder[0].parentReference.driveId,
+  };
+}
+
+/**
+ * Use all the techniques to find the drive and folder id.
+ * @param token
+ * @param siteId
+ * @param folderName
+ * @returns {Promise<undefined|{driveId: *, folderId: *}>}
+ */
+async function findDriveAndFolderId(token, siteId, folderName) {
+  // Find folder within a drive, if there is one provided.
+  const parts = folderName.split('/sites/');
+  if (parts.length === 2) {
+    const drive = parts[0];
+    const path = parts[1];
+    const byDriveId = await searchByDriveId(token, siteId, drive, path);
+    if (byDriveId) {
+      return byDriveId;
     }
   }
 
-  if (!folderData) {
-    throw new Error(`❌ Final folder not found for path "${fullPath}".`);
+  // Find by folder name, in any drive.
+  const byFolderName = await searchFolderByName(token, siteId, folderName);
+  if (byFolderName) {
+    return byFolderName;
   }
 
-  // console.log(`✅ Found folder "${folderData.name}"`);
-  // console.log(`📁 Folder ID: ${folderData.id}`);
-  // console.log(`📂 Drive ID: ${folderData.parentReference?.driveId}`);
-
-  return {
-    folderId: folderData.id,
-    driveId: folderData.parentReference?.driveId,
-  };
+  return undefined;
 }
 
 /**
@@ -88,62 +148,35 @@ export async function run() {
     core.info(`✅ Site ID: ${siteId}`);
   } catch (error1) {
     core.warning(`Failed to get Site Id: ${error1.message}`);
+    core.setOutput('error_message', `❌ Error: Failed to get Site Id: ${error1.message}`);
+    return;
   }
 
   // Now find the drive id.  The folder path may represent a drive link, and not the actual path
   // so some effort is needed to find the drive id.
+  let folder;
   if (siteId) {
     try {
-      // Step 2: Assume folder path is actually a folder path.
-      const folder = await graphFetch(token, `/sites/${siteId}/drive/root:${decodedFolderPath}`);
-      core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
-      core.info(`✅ Folder ID: ${folder.id}`);
-      core.setOutput('drive_id', folder.parentReference.driveId);
-      core.setOutput('folder_id', folder.id);
+      // Step 2: Assume folder path is actually the folder path.
+      folder = await graphFetch(token, `/sites/${siteId}/drive/root:${decodedFolderPath}`);
     } catch (error2) {
       core.info(`Failed to get folder info for ${siteId} / ${decodedFolderPath}: ${error2.message}. Trying to find it...`);
 
       // Folder path is a link, so try to find the drive id that it represents.
       try {
-        const { folderId, driveId } = await findFolderId(token, siteId, decodedFolderPath);
-        // let currentFolder = '';
-        // let targetFolder = '';
-        // const folderNames = decodedFolderPath.split('/');
-        // for (const folderName of folderNames) {
-        //   core.info(`Searching for folder: ${folderName}`);
-        //   const hits = await graphFetch(token, `/sites/${siteId}/drive/root/search
-        //   (q='${folderName}')`);
-        //   const folders = hits.value.filter((item) => item.folder);
-        //   for (const item of folders) {
-        //     core.info(`Found: ${item.name}`);
-        //     core.info(`Path: ${item.parentReference.path}`);
-        //     core.info(`Drive ID: ${item.parentReference.driveId}`);
-        //     core.info(`Item ID: ${item.id}`);
-        //   }
-        //   if (folders.length === 1) {
-        //     targetFolder = `/${folders[0].path}`;
-        //     currentFolder += `/${folders[0].path}`;
-        //   }
-        // }
-        // if (targetFolder) {
-        //   const path = `${targetFolder.parentReference.path}/${targetFolder.name}`;
-        //   const cleanPath = path.replace('/drive/root:', '');
-        //   core.info(`✅ Clean Path: ${cleanPath}`);
-        //
-        //   // Step 2: Get the folder path
-        //   const folder = await graphFetch(token, `/sites/${siteId}/drive/root:/${cleanPath}`);
-        //   core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
-        //   core.info(`✅ Folder ID: ${folder.id}`);
-        //   core.setOutput('drive_id', folder.parentReference.driveId);
-        //   core.setOutput('folder_id', folder.id);
-        // }
-        core.info(`✅ Drive ID: ${driveId}`);
-        core.info(`✅ Folder ID: ${folderId}`);
-        core.setOutput('drive_id', driveId);
-        core.setOutput('folder_id', folderId);
+        folder = await findDriveAndFolderId(token, siteId, decodedFolderPath);
       } catch (error3) {
         core.warning(`Failed to get folder info for ${siteId}: ${error3.message}`);
       }
+    }
+
+    if (folder) {
+      core.info(`✅ Drive ID: ${folder.parentReference.driveId}`);
+      core.info(`✅ Folder ID: ${folder.id}`);
+      core.setOutput('drive_id', folder.parentReference.driveId);
+      core.setOutput('folder_id', folder.id);
+    } else {
+      core.setOutput('error_message', '❌ Error: Failed to get drive and/or folder Id.');
     }
   }
 }
