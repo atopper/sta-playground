@@ -162,7 +162,7 @@ export async function run() {
     return;
   }
 
-  // Now find the drive id.
+  // Now find the (root) drive id.
   const requestedDrive = decodedFolderPath.split('/').shift();
   let driveId;
   try {
@@ -173,7 +173,7 @@ export async function run() {
       driveId = sharedDocumentsDrive.id;
       core.info(`✅ Found ${requestedDrive} with a drive Id of ${driveId}`);
     }
-    if (!driveId && driveResponse.value.length === 1 && requestedDrive === 'Documents') {
+    if (!driveId && driveResponse.value.length === 1 && driveResponse.value[0].name === 'Documents') {
       driveId = sharedDocumentsDrive.id;
       core.info(`✅ Found default drive 'Documents' with a drive Id of ${driveId}`);
     }
