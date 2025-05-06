@@ -33,7 +33,7 @@ async function graphFetch(token, endpoint) {
 /**
  * Find the drive id of the drive provided, and find the folder within it.
  * @param token
- * @param siteId
+ * @param siteId Id for the host and site (i.e. adobe.sharepoint.com / AEMDemos)
  * @param drive
  * @param folderPath
  * @returns {Promise<{driveId, folderId}|undefined>}
@@ -52,7 +52,7 @@ async function searchByDrive(token, siteId, drive, folderPath) {
       }
     } else {
       const driveId = driveData.value[0].id;
-      core.info(`Drive "${drive}" found in site with id ${siteId}.`);
+      core.info(`Drive "${drive}" (${driveId}) found in site with id ${siteId}.`);
       try {
         const parts = folderPath.split('/');
         const root = parts.shift();
@@ -64,6 +64,7 @@ async function searchByDrive(token, siteId, drive, folderPath) {
             `/drives/${driveId}/items/${folder.id}/children`,
           );
           folder = children.value.find((item) => item.name === sub);
+          core.info(`Found subfolder "${sub}" with id ${folder.id}".`);
         }
 
         return {
@@ -71,11 +72,11 @@ async function searchByDrive(token, siteId, drive, folderPath) {
           driveId,
         };
       } catch (e) {
-        core.warning(`Could not find path "${folderPath}" in drive id ${driveId}.`);
+        core.warning(`Could not find path "${folderPath}" in drive id ${driveId}: ${e.message}`);
       }
     }
   } catch (e) {
-    core.warning(`Could not find drive id of "${drive}".`);
+    core.warning(`Could not find drive id of "${drive}": ${e.message}`);
   }
 
   return undefined;
@@ -84,13 +85,13 @@ async function searchByDrive(token, siteId, drive, folderPath) {
 /**
  * Search for a folder with the provided name in the whole site.
  * @param token
- * @param siteId
+ * @param siteId Id for the host and site (i.e. adobe.sharepoint.com / AEMDemos)
  * @param folderPath
  * @returns {Promise<undefined|{driveId: *, folderId}>}
  */
-async function searchFolderByName(token, siteId, folderPath) {
+async function fetchFolderByPath(token, siteId, folderPath) {
   const folderName = folderPath.split('/').pop();
-  const endpoint = `/sites/${siteId}/drive/root:/search(q='${folderName}')`;
+  const endpoint = `/sites/${siteId}/drive/root:${folderName}`;
   const searchResults = await graphFetch(token, endpoint);
   if (!searchResults.value || searchResults.value.length === 0) {
     core.warning(`Folder "${folderName}" not found.`);
@@ -116,26 +117,21 @@ async function searchFolderByName(token, siteId, folderPath) {
 /**
  * Use all the techniques to find the drive and folder id.
  * @param token
- * @param siteId
- * @param folderName
+ * @param siteId Id for the host and site (i.e. adobe.sharepoint.com / AEMDemos)
+ * @param folderPath
  * @returns {Promise<undefined|{driveId: *, folderId: *}>}
  */
-async function findDriveAndFolderId(token, siteId, folderName) {
-  // Find folder within a drive, if there is one provided.
-  const parts = folderName.split('/sites/');
-  if (parts.length === 2) {
-    const drive = parts[0];
-    const path = parts[1];
-    const byDriveId = await searchByDrive(token, siteId, drive, path);
-    if (byDriveId) {
-      return byDriveId;
-    }
-  }
-
+async function findDriveAndFolderId(token, siteId, folderPath) {
   // Find by folder name, in any drive.
-  const byFolderName = await searchFolderByName(token, siteId, folderName);
+  const byFolderName = await fetchFolderByPath(token, siteId, folderPath);
   if (byFolderName) {
     return byFolderName;
+  }
+
+  // Find folder within a drive, if there is one provided.
+  const byDriveId = await searchByDrive(token, siteId, folderPath);
+  if (byDriveId) {
+    return byDriveId;
   }
 
   return undefined;
@@ -160,27 +156,43 @@ export async function run() {
     const site = await graphFetch(token, `/sites/${spHost}:/sites/${spSitePath}`);
     siteId = site.id;
     core.info(`✅ Site ID: ${siteId}`);
-  } catch (error1) {
-    core.warning(`Failed to get Site Id: ${error1.message}`);
-    core.setOutput('error_message', `❌ Error: Failed to get Site Id: ${error1.message}`);
+  } catch (siteError) {
+    core.warning(`Failed to get Site Id: ${siteError.message}`);
+    core.setOutput('error_message', `❌ Error: Failed to get Site Id: ${siteError.message}`);
     return;
   }
 
-  // Now find the drive id.  The folder path may represent a drive link, and not the actual path
-  // so some effort is needed to find the drive id.
+  // Now find the drive id.
+  const requestedDrive = decodedFolderPath.split('/').shift();
+  let driveId;
+  try {
+    const driveResponse = await graphFetch(token, `/sites/${siteId}/drives`);
+    const sharedDocumentsDrive = driveResponse.value.find((dr) => dr.name === requestedDrive);
+    if (sharedDocumentsDrive) {
+      driveId = sharedDocumentsDrive.id;
+      core.info(`✅ Found ${requestedDrive} with a drive Id of ${driveId}`);
+    }
+  } catch (driveError) {
+    core.warning(`Failed to get Drive Id: ${driveError.message}`);
+    core.setOutput('error_message', `❌ Error: Failed to get Site Id: ${driveError.message}`);
+    return;
+  }
+
+  // Now get the folder id.
   let folder;
-  if (siteId) {
+  if (siteId && driveId) {
     try {
       // Step 2: Assume folder path is actually the folder path.
-      const folderSearch = await graphFetch(token, `/sites/${siteId}/drive/root:${decodedFolderPath}`);
-      if (folderSearch) {
+      const folderData = await graphFetch(token, `/drives/${driveId}/root:${decodedFolderPath}`);
+      if (folderData) {
         folder = {
-          folderId: folderSearch.id,
-          driveId: folderSearch.parentReference.driveId,
+          folderId: folderData.id,
+          driveId: folderData.parentReference.driveId,
         };
       }
     } catch (error2) {
-      core.info(`Did not find folder info for ${siteId} / ${decodedFolderPath}: ${error2.message}. Trying to find it by digging in a little...`);
+      core.info(`Did not find folder info for ${siteId} / ${decodedFolderPath}: ${error2.message}.`);
+      core.info('>> Trying to find it by digging in a little...');
 
       // Folder path is a link, so try to find the drive id that it represents.
       try {
