@@ -98,7 +98,7 @@ export async function run() {
   let driveId;
   try {
     const driveResponse = await graphFetch(token, `/sites/${siteId}/drives`);
-    core.info(`✔️ Found ${driveResponse.value.length} drives in site ${siteId}.`);
+    core.debug(`✔️ Found ${driveResponse.value.length} drives in site ${siteId}.`);
     const sharedDocumentsDrive = driveResponse.value.find((dr) => dr.name === rootDrive);
     if (sharedDocumentsDrive) {
       driveId = sharedDocumentsDrive.id;
@@ -110,7 +110,7 @@ export async function run() {
     }
   } catch (driveError) {
     core.warning(`Failed to get Drive Id: ${driveError.message}`);
-    core.setOutput('error_message', `❌ Error: Failed to get Site Id.`);
+    core.setOutput('error_message', '❌ Error: Failed to get Site Id.');
     return;
   }
 
@@ -129,7 +129,7 @@ export async function run() {
       core.setOutput('drive_id', folder.driveId);
       core.setOutput('folder_id', folder.folderId);
     } else {
-      core.setOutput('error_message', '❌ Error: Failed to get drive and/or folder id of the mountpoint.');
+      core.setOutput('error_message', '❌ Error: Failed to get drive and folder id of the mountpoint.');
     }
   }
 }
