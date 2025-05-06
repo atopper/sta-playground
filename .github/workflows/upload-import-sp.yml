@@ -235,7 +235,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Could not extract the drive id from the SharePoint site. Check the output associated workflow step. ${{ env.ACTION_URL }}
+          message: Could not extract the drive id from the SharePoint site. Check the output of the associated workflow step. ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
