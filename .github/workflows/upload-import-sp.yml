@@ -252,7 +252,7 @@ jobs:
         id: sharepoint-upload-step
         shell: bash
         run: |
-          bash .github/actions/upload-sharepoint/upload-to-sharepoint___short-circuit.sh \
+          bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh \
             "${{ steps.download-zip.outputs.temp_dir }}/contents/docx" \
             "${{ steps.azure-auth.outputs.access_token }}" \
             "${{ steps.get-drive-info.outputs.drive_id }}" \
