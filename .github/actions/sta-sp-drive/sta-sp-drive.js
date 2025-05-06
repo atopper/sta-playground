@@ -44,8 +44,9 @@ async function findFolderId(token, siteId, fullPath) {
       if (!folderData.folder) {
         core.warning(`"${part}" exists but is not a folder. Skipping...`);
       } else {
+        core.info(`Found folder "${part}" with path "${nextAttempt.parentReference.path}"`);
         folderData = nextAttempt.value[0] || folderData;
-        currentPath += `/${part}`;
+        currentPath += `/${nextAttempt.parentReference.path}`;
       }
     } catch (e) {
       core.info(`Could not find a drive id for "${part}". Trying the next one...`);
