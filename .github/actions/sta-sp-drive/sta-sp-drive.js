@@ -45,7 +45,7 @@ async function searchByDrive(token, siteId, drive, folderPath) {
 
     if (!driveData) {
       core.warning(`Drive "${drive}" not found in site.`);
-    } else if (driveData.length !== 1) {
+    } else if (driveData.value.length !== 1) {
       core.warning(`Multiple drives with name "${drive}" found in site.`);
       for (const drv of driveData.value) {
         core.info(`Drive ID: ${drv.id}, Name: ${drv.name}`);
