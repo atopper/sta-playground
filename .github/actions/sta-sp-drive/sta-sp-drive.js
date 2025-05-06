@@ -143,6 +143,7 @@ async function getFolderByPath(token, driveId, folderPath) {
     segments.shift();
   }
   let currentId = 'root'; // start at root
+  let segmentDriveId;
   let currentPath = '';
 
   for (const segment of segments) {
@@ -151,7 +152,8 @@ async function getFolderByPath(token, driveId, folderPath) {
       const url = `/drives/${driveId}/root:${currentPath}`;
       const result = await graphFetch(token, url);
       currentId = result.id;
-      core.info(`✔️ Found: ${currentPath} (id: ${currentId})`);
+      segmentDriveId = result.parentReference.driveId;
+      core.info(`✔️ Found: ${currentPath} (id: ${currentId}) with drive id ${driveId})`);
     } catch (err) {
       core.warning(`Segment not found: ${currentPath}`);
       return null;
@@ -160,7 +162,7 @@ async function getFolderByPath(token, driveId, folderPath) {
 
   return {
     folderId: currentId,
-    fullPath: currentPath,
+    driveId: segmentDriveId,
   };
 }
 
