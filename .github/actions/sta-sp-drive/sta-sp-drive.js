@@ -173,8 +173,8 @@ export async function run() {
       driveId = sharedDocumentsDrive.id;
       core.info(`✅ Found ${requestedDrive} with a drive Id of ${driveId}`);
     }
-    if (!driveId && driveResponse.value.length === 1 && driveResponse.value[0].name === 'Documents') {
-      driveId = sharedDocumentsDrive.value[0].id;
+    if (!driveId && driveResponse?.value.length === 1 && driveResponse.value[0].name === 'Documents') {
+      driveId = driveResponse.value[0].id;
       core.info(`✅ Found default drive 'Documents' with a drive Id of ${driveId}`);
     }
   } catch (driveError) {
