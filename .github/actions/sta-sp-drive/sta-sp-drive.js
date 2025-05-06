@@ -12,9 +12,11 @@
 
 import core from '@actions/core';
 
+const GRAPH_API = 'https://graph.microsoft.com/v1.0';
+
 async function graphFetch(token, endpoint) {
-  core.info(`Fetching Graph API endpoint: https://graph.microsoft.com/v1.0${endpoint}`);
-  const res = await fetch(`https://graph.microsoft.com/v1.0${endpoint}`, {
+  core.info(`Fetching Graph API endpoint: ${GRAPH_API}${endpoint}`);
+  const res = await fetch(`${GRAPH_API}${endpoint}`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
@@ -31,112 +33,14 @@ async function graphFetch(token, endpoint) {
 }
 
 /**
- * Find the drive id of the drive provided, and find the folder within it.
+ * Step through the folder, one by one, skipping the root 'documents' folder and
+ * extract information about the folder.  This allows more precise error handling
+ * to indicate which segment of the path was not found.
  * @param token
- * @param siteId Id for the host and site (i.e. adobe.sharepoint.com / AEMDemos)
- * @param drive
+ * @param driveId id for the root document drive
  * @param folderPath
- * @returns {Promise<{driveId, folderId}|undefined>}
+ * @returns {Promise<{driveId: string, folderId: string}>}
  */
-async function searchByDrive(token, siteId, drive, folderPath) {
-  let driveData;
-  try {
-    driveData = await graphFetch(token, `/sites/${siteId}/drives?search=${drive}`);
-
-    if (!driveData) {
-      core.warning(`Drive "${drive}" not found in site.`);
-    } else if (driveData.value.length !== 1) {
-      core.warning(`Multiple drives with name "${drive}" found in site.`);
-      for (const [index, drv] of driveData.value.entries()) {
-        core.info(`Index: ${index + 1}, Drive ID: ${drv.id}, Name: ${drv.name}`);
-      }
-    } else {
-      const driveId = driveData.value[0].id;
-      core.info(`Drive "${drive}" (${driveId}) found in site with id ${siteId}.`);
-      try {
-        const parts = folderPath.split('/');
-        const root = parts.shift();
-        let folder = await graphFetch(token, `/drives/${driveId}/root:/${root}`);
-        for (const sub of parts) {
-          core.info(`Searching for subfolder "${sub}" in folder "${folder.name} / ${folder.id}".`);
-          const children = await graphFetch(
-            token,
-            `/drives/${driveId}/items/${folder.id}/children`,
-          );
-          folder = children.value.find((item) => item.name === sub);
-          core.info(`Found subfolder "${sub}" with id ${folder.id}".`);
-        }
-
-        return {
-          folderId: folder.id,
-          driveId,
-        };
-      } catch (e) {
-        core.warning(`Could not find path "${folderPath}" in drive id ${driveId}: ${e.message}`);
-      }
-    }
-  } catch (e) {
-    core.warning(`Could not find drive id of "${drive}": ${e.message}`);
-  }
-
-  return undefined;
-}
-
-/**
- * Search for a folder with the provided name in the whole site.
- * @param token
- * @param siteId Id for the host and site (i.e. adobe.sharepoint.com / AEMDemos)
- * @param folderPath
- * @returns {Promise<undefined|{driveId: *, folderId}>}
- */
-async function fetchFolderByPath(token, siteId, folderPath) {
-  const folderName = folderPath.split('/').pop();
-  const endpoint = `/sites/${siteId}/drive/root:/${folderName}`;
-  const searchResults = await graphFetch(token, endpoint);
-  if (!searchResults.value || searchResults.value.length === 0) {
-    core.warning(`Folder "${folderName}" not found.`);
-    return undefined;
-  }
-
-  // Filter results to ensure it's a folder
-  const folder = searchResults.value.filter((item) => item.folder);
-  if (!folder || folder.length === 0) {
-    core.warning(`No folder found with the name "${folderName}".`);
-    return undefined;
-  }
-  if (folder.length > 1) {
-    core.warning(`Multiple folders found with the name "${folderName}".`);
-    return undefined;
-  }
-  return {
-    folderId: folder[0].id,
-    driveId: folder[0].parentReference.driveId,
-  };
-}
-
-/**
- * Use all the techniques to find the drive and folder id.
- * @param token
- * @param siteId Id for the host and site (i.e. adobe.sharepoint.com / AEMDemos)
- * @param folderPath
- * @returns {Promise<undefined|{driveId: *, folderId: *}>}
- */
-async function findDriveAndFolderId(token, siteId, folderPath) {
-  // Find by folder name, in any drive.
-  const byFolderName = await fetchFolderByPath(token, siteId, folderPath);
-  if (byFolderName) {
-    return byFolderName;
-  }
-
-  // Find folder within a drive, if there is one provided.
-  const byDriveId = await searchByDrive(token, siteId, folderPath);
-  if (byDriveId) {
-    return byDriveId;
-  }
-
-  return undefined;
-}
-
 async function getFolderByPath(token, driveId, folderPath) {
   const segments = folderPath.split('/'); // break the path into parts
   if (segments[0] === 'Documents' || segments[0] === 'Shared%20Documents') {
@@ -149,14 +53,12 @@ async function getFolderByPath(token, driveId, folderPath) {
   for (const segment of segments) {
     currentPath += `/${segment}`;
     try {
-      const url = `/drives/${driveId}/root:${currentPath}`;
-      const result = await graphFetch(token, url);
+      const result = await graphFetch(token, `/drives/${driveId}/root:${currentPath}`);
       currentId = result.id;
       segmentDriveId = result.parentReference.driveId;
-      core.info(`✔️ Found: ${currentPath} (id: ${currentId}) with drive id ${driveId})`);
+      core.debug(`✔️ Found data for ${currentPath} (id: ${currentId} with drive id ${driveId})`);
     } catch (err) {
-      core.warning(`Segment not found: ${currentPath}`);
-      return null;
+      throw new Error(`Segment not found: ${currentPath}`);
     }
   }
 
@@ -200,15 +102,15 @@ export async function run() {
     const sharedDocumentsDrive = driveResponse.value.find((dr) => dr.name === rootDrive);
     if (sharedDocumentsDrive) {
       driveId = sharedDocumentsDrive.id;
-      core.info(`✔️ Found ${rootDrive} with a drive Id of ${driveId}`);
+      core.debug(`✔️ Found ${rootDrive} with a drive id of ${driveId}`);
     }
     if (!driveId && driveResponse?.value.length === 1 && driveResponse.value[0].name === 'Documents') {
       driveId = driveResponse.value[0].id;
-      core.info(`✔️ Found default drive 'Documents' with a drive Id of ${driveId}`);
+      core.debug(`✔️ Found default drive 'Documents' with a drive id of ${driveId}`);
     }
   } catch (driveError) {
     core.warning(`Failed to get Drive Id: ${driveError.message}`);
-    core.setOutput('error_message', `❌ Error: Failed to get Site Id: ${driveError.message}`);
+    core.setOutput('error_message', `❌ Error: Failed to get Site Id.`);
     return;
   }
 
@@ -217,26 +119,8 @@ export async function run() {
   if (siteId && driveId) {
     try {
       folder = await getFolderByPath(token, driveId, spFolderPath);
-      if (!folder) {
-        // Use the origin encoded path.
-        const folderData = await graphFetch(token, `/drives/${driveId}/root:/${spFolderPath}`);
-        if (folderData) {
-          folder = {
-            folderId: folderData.id,
-            driveId: folderData.parentReference.driveId,
-          };
-        }
-      }
-    } catch (error2) {
-      core.info(`Did not find folder info for ${siteId} / ${decodedFolderPath}: ${error2.message}.`);
-      core.info('>> Trying to find it by digging in a little...');
-
-      // Folder path is a link, so try to find the drive id that it represents.
-      try {
-        folder = await findDriveAndFolderId(token, siteId, decodedFolderPath);
-      } catch (error3) {
-        core.warning(`Failed to get folder info for ${siteId}: ${error3.message}`);
-      }
+    } catch (folderError) {
+      core.warning(`Failed to get folder info for ${siteId} / ${decodedFolderPath}: ${folderError.message}`);
     }
 
     if (folder) {
@@ -245,7 +129,7 @@ export async function run() {
       core.setOutput('drive_id', folder.driveId);
       core.setOutput('folder_id', folder.folderId);
     } else {
-      core.setOutput('error_message', '❌ Error: Failed to get drive and/or folder Id.');
+      core.setOutput('error_message', '❌ Error: Failed to get drive and/or folder id of the mountpoint.');
     }
   }
 }
