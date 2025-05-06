@@ -137,6 +137,30 @@ async function findDriveAndFolderId(token, siteId, folderPath) {
   return undefined;
 }
 
+async function getFolderByPath(token, driveId, folderPath) {
+  const segments = folderPath.split('/'); // break the path into parts
+  let currentId = 'root'; // start at root
+  let currentPath = '';
+
+  for (const segment of segments) {
+    currentPath += `/${segment}`;
+    try {
+      const url = `/drives/${driveId}/root:${currentPath}`;
+      const result = await graphFetch(token, url);
+      currentId = result.id;
+      core.info(`✅ Found: ${currentPath} (id: ${currentId})`);
+    } catch (err) {
+      core.warning(`❌ Segment not found: ${currentPath}`);
+      return null;
+    }
+  }
+
+  return {
+    folderId: currentId,
+    fullPath: currentPath,
+  };
+}
+
 /**
  * Get the site and drive ID for a SharePoint site.
  * @returns {Promise<void>}
@@ -187,13 +211,16 @@ export async function run() {
   let folder;
   if (siteId && driveId) {
     try {
-      // Use the origin encoded path.
-      const folderData = await graphFetch(token, `/drives/${driveId}/root:/${spFolderPath}`);
-      if (folderData) {
-        folder = {
-          folderId: folderData.id,
-          driveId: folderData.parentReference.driveId,
-        };
+      folder = getFolderByPath(token, driveId, spFolderPath);
+      if (!folder) {
+        // Use the origin encoded path.
+        const folderData = await graphFetch(token, `/drives/${driveId}/root:/${spFolderPath}`);
+        if (folderData) {
+          folder = {
+            folderId: folderData.id,
+            driveId: folderData.parentReference.driveId,
+          };
+        }
       }
     } catch (error2) {
       core.info(`Did not find folder info for ${siteId} / ${decodedFolderPath}: ${error2.message}.`);
