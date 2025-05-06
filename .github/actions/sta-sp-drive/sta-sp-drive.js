@@ -58,9 +58,10 @@ async function searchByDrive(token, siteId, drive, folderPath) {
         const root = parts.shift();
         let folder = await graphFetch(token, `/drives/${driveId}/root:/${root}`);
         for (const sub of parts) {
+          core.info(`Searching for subfolder "${sub}" in folder "${folder.name} / ${folder.id}".`);
           const children = await graphFetch(
             token,
-            `/sites/${siteId}/drives/${driveId}/items/${folder.id}/children`,
+            `/drives/${driveId}/items/${folder.id}/children`,
           );
           folder = children.value.find((item) => item.name === sub);
         }
