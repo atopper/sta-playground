@@ -54,14 +54,16 @@ async function searchByDrive(token, siteId, drive, folderPath) {
       const driveId = driveData.value[0].id;
       core.info(`Drive "${drive}" found in site with id ${siteId}.`);
       try {
-        // const parts = folderPath.split('/');
-        // const first = parts.shift();
-        const folder = await graphFetch(token, `/drives/${driveId}/root:/${folderPath}`);
-        // for (const sub of parts) {
-        //   const children = await graphFetch(token,
-        //         `/sites/${siteId}/drives/${driveId}/items/${rootFolder.id}/children`);
-        //   const folder = children.value.find((item) => item.name === sub);
-        // }
+        const parts = folderPath.split('/');
+        const root = parts.shift();
+        let folder = await graphFetch(token, `/drives/${driveId}/root:/${root}`);
+        for (const sub of parts) {
+          const children = await graphFetch(
+            token,
+            `/sites/${siteId}/drives/${driveId}/items/${folder.id}/children`,
+          );
+          folder = children.value.find((item) => item.name === sub);
+        }
 
         return {
           folderId: folder.id,
