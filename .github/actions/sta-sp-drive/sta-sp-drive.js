@@ -47,14 +47,15 @@ async function searchByDrive(token, siteId, drive, folderPath) {
       core.warning(`Drive "${drive}" not found in site.`);
     } else if (driveData.value.length !== 1) {
       core.warning(`Multiple drives with name "${drive}" found in site.`);
-      for (const drv of driveData.value) {
-        core.info(`Drive ID: ${drv.id}, Name: ${drv.name}`);
+      for (const [index, drv] of driveData.value.entries()) {
+        core.info(`Index: ${index + 1}, Drive ID: ${drv.id}, Name: ${drv.name}`);
       }
     } else {
       const driveId = driveData.value[0].id;
       core.info(`Drive "${drive}" found in site with id ${driveId}.`);
       try {
-        const folder = await graphFetch(token, `/drives/${driveId}/root:/${folderPath}`);
+        const firstFolder = folderPath.split('/').shift();
+        const folder = await graphFetch(token, `/drives/${driveId}/root:/${firstFolder}`);
         return {
           folderId: folder.id,
           driveId,
@@ -71,7 +72,7 @@ async function searchByDrive(token, siteId, drive, folderPath) {
 }
 
 /**
- * Search for a folder with the provided name.
+ * Search for a folder with the provided name in the whole site.
  * @param token
  * @param siteId
  * @param folderPath
