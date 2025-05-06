@@ -36,14 +36,19 @@ async function findFolderId(token, siteId, fullPath) {
   let folderData = null;
 
   for (const part of parts) {
-    currentPath += `/${part}`;
+    const endpoint = `/sites/${siteId}/drive/root:${currentPath}/${part}`;
+    try {
+      const nextAttempt = await graphFetch(token, endpoint);
 
-    const endpoint = `/sites/${siteId}/drive/root:${currentPath}`;
-    folderData = await graphFetch(token, endpoint);
-
-    // Sanity check: make sure it's a folder
-    if (!folderData.folder) {
-      throw new Error(`❌ "${part}" exists but is not a folder.`);
+      // Sanity check: make sure it's a folder
+      if (!folderData.folder) {
+        core.warning(`"${part}" exists but is not a folder. Skipping...`);
+      } else {
+        folderData = nextAttempt.value[0] || folderData;
+        currentPath += `/${part}`;
+      }
+    } catch (e) {
+      core.info(`Could not find a drive id for "${part}". Trying the next one...`);
     }
   }
 
@@ -81,7 +86,7 @@ export async function run() {
     siteId = site.id;
     core.info(`✅ Site ID: ${siteId}`);
   } catch (error1) {
-    core.warning(`Failed get Site Id: ${error1.message}`);
+    core.warning(`Failed to get Site Id: ${error1.message}`);
   }
 
   // Now find the drive id.  The folder path may represent a drive link, and not the actual path
@@ -95,7 +100,7 @@ export async function run() {
       core.setOutput('drive_id', folder.parentReference.driveId);
       core.setOutput('folder_id', folder.id);
     } catch (error2) {
-      core.info(`Failed get folder info for ${siteId} / ${decodedFolderPath}: ${error2.message}. Trying to find it...`);
+      core.info(`Failed to get folder info for ${siteId} / ${decodedFolderPath}: ${error2.message}. Trying to find it...`);
 
       // Folder path is a link, so try to find the drive id that it represents.
       try {
@@ -136,7 +141,7 @@ export async function run() {
         core.setOutput('drive_id', driveId);
         core.setOutput('folder_id', folderId);
       } catch (error3) {
-        core.warning(`Failed get folder info for ${siteId}: ${error3.message}`);
+        core.warning(`Failed to get folder info for ${siteId}: ${error3.message}`);
       }
     }
   }
