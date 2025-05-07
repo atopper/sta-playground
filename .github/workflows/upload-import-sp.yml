@@ -262,13 +262,13 @@ jobs:
 
       - name: Analyze upload results
         run: |
-          echo "Successes: ${{ env.upload-sharepoint.outputs.upload_successes }}"
-          echo "Failed Files: ${{ env.upload-sharepoint.outputs.upload_failed_list }}"
-          echo "Failures: ${{ env.upload-sharepoint.outputs.upload_failures }}"
-          echo "Message: ${{ env.upload-sharepoint.outputs.error_message }}"
+          echo "Successes: ${{ steps.upload-sharepoint.outputs.upload_successes }}"
+          echo "Failed Files: ${{ steps.upload-sharepoint.outputs.upload_failed_list }}"
+          echo "Failures: ${{ steps.upload-sharepoint.outputs.upload_failures }}"
+          echo "Message: ${{ steps.upload-sharepoint.outputs.error_message }}"
           
-          if [ "${{ env.upload-sharepoint.outputs.upload_failures }}" != "0" ]; then
-            message="Failed to upload ${{ env.upload-sharepoint.outputs.upload_failures }} files. Uploaded ${{ env.upload-sharepoint.outputs.upload_successes }} files successfully. ${{ env.ACTION_URL }}"
+          if [ "${{ steps.upload-sharepoint.outputs.upload_failures }}" != "0" ]; then
+            message="Failed to upload ${{ steps.upload-sharepoint.outputs.upload_failures }} files. Uploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files successfully. ${{ env.ACTION_URL }}"
             echo "errorMessage=$message" >> $GITHUB_ENV
           fi
 
@@ -277,7 +277,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: "✅ Success count: ${{ env.upload-sharepoint.outputs.upload_successes }}JS_LF❌ Failed count: ${{ env.upload-sharepoint.outputs.upload_failures }}JS_LF🚨 Failed files: ${{ env.upload-sharepoint.outputs.upload_failed_list }}"
+          message: "✅ Success count: ${{ steps.upload-sharepoint.outputs.upload_successes }}JS_LF❌ Failed count: ${{ steps.upload-sharepoint.outputs.upload_failures }}JS_LF🚨 Failed files: ${{ steps.upload-sharepoint.outputs.upload_failed_list }}"
           status_type: progress
           agent_name: upload-import-sp
 
@@ -296,7 +296,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: SharePoint upload succeeded. Uploaded ${{ env.upload-sharepoint.outputs.upload_successes }} files.
+          message: SharePoint upload succeeded. Uploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files.
           status_type: ok
           agent_name: upload-import-sp
 
