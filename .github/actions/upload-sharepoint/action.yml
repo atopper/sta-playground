@@ -2,30 +2,31 @@ name: "Upload to SharePoint"
 description: "Upload files to SharePoint"
 author: "Experience Catalyst"
 inputs:
-  ACCESS_TOKEN:
+  access_token:
     description: "Access token for Azure (SharePoint)."
     required: true
-  DRIVE_ID:
-    description: "The SharePoint destination drive ID."
+  drive_id:
+    description: "The SharePoint destination top-level drive ID."
     required: true
-  aemy_callbacks:
-    description: "The AEMY callback information."
+  folder_id:
+    description: "The SharePoint destination folder ID."
     required: true
-  aemy_context:
-    description: "The AEMY context as a string."
-    required: true
-  temp_dir:
+  zip_dir:
     description: "The folder holding the zip and its contents."
     required: true
+  delay:
+    description: "The delay between file uploads in milliseconds to avoid throttling. Default: 2000"
+    required: false
+    default: 2000
+outputs:
+  upload_failed_list:
+    description: "The list of files that failed to upload."
+  upload_successes:
+    description: "The number of upload successes."
+  upload_failures:
+    description: "The number of upload failures."
+  error_message:
+    description: "Error message if the operation could not be completed"
 runs:
-  using: "composite"
-  steps:
-    - name: "Upload the files"
-      run: |
-        bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh \
-          "${{ env.temp_dir }}/content/docx" \
-          "${{ env.ACCESS_TOKEN }}" \
-          "${{ env.DRIVE_ID }}" \
-          "${{ github.event.inputs.aemy_callbacks }}" \
-          "${{ github.event.inputs.aemy_context }}"
-      shell: bash
+  using: 'node20'
+  main: 'sta-sharepoint-upload.js'
