@@ -71,7 +71,7 @@ async function uploadFile(accessToken, driveId, folderId, file) {
   try {
     const response = await graphFetch(
       accessToken,
-      `/drives/${driveId}/items/${folderId}:${file.relative}/content`,
+      `/drives/${driveId}/items/${folderId}:${file.relative}:/content`,
       {
         method: 'PUT',
         body: fileStream,
