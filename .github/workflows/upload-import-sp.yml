@@ -267,7 +267,7 @@ jobs:
           echo "Failures: ${{ env.upload-sharepoint.outputs.upload_failures }}"
           echo "Message: ${{ env.upload-sharepoint.outputs.error_message }}"
           
-          if [ "$((env.upload-sharepoint.outputs.upload_failures + 0))" -gt 0 ]; then
+          if [ "${{ env.upload-sharepoint.outputs.upload_failures }}" != "0" ]; then
             message="Failed to upload ${{ env.upload-sharepoint.outputs.upload_failures }} files. Uploaded ${{ env.upload-sharepoint.outputs.upload_successes }} files successfully. ${{ env.ACTION_URL }}"
             echo "errorMessage=$message" >> $GITHUB_ENV
           fi
