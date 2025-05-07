@@ -170,12 +170,13 @@ async function getSourceStructure(srcFolder, structure = undefined) {
     files: [],
   };
   const entries = fs.readdirSync(srcFolder, { withFileTypes: true });
+  core.info(`Reading source items from ${srcFolder}`);
 
   for (const entry of entries) {
     const fullPath = path.join(srcFolder, entry.name);
 
     if (entry.isDirectory()) {
-      core.debug(`Adding directory and recursing it: ${entry.name}`);
+      core.debug(`Recording directory and recursing it: ${fullPath}`);
       newStructure.folders.push({
         name: entry.name,
         path: fullPath,
@@ -245,9 +246,11 @@ export async function run() {
 
   try {
     // Get the source structure (folders, files, etc.).
+    core.info(`Extracting information from ${zipDir}`);
     const sourceData = await getSourceStructure(zipDir);
 
     // Now create the folder structure in SharePoint, if necessary.
+    core.info(`Creating ${JSON.stringify(sourceData.folders)} folders, if necessary.`);
     await createFoldersIfNecessary(
       accessToken,
       driveId,
@@ -260,6 +263,7 @@ export async function run() {
     );
 
     // Now upload each file, knowing the destination folders already exist.
+    core.info(`Uploading ${JSON.stringify(sourceData.files)} files.`);
     await uploadFiles(accessToken, driveId, folderId, sourceData.files, delay, uploadReport);
     core.info(`Upload report: ${JSON.stringify(uploadReport)}`);
     core.setOutput('upload_failed_list', uploadReport.failedList.join(', '));
