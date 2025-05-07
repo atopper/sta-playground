@@ -197,7 +197,7 @@ async function populateSourceStructure(srcFolder) {
         name: entry.name,
         path: fullPath,
       });
-      await populateSourceStructure(fullPath, structure);
+      await populateSourceStructure(fullPath);
     } else if (entry.isFile()) {
       core.info(`> Adding file: ${fullPath}`);
       sourceStructure.files.push({
