@@ -16,6 +16,13 @@ import path from 'path';
 
 const GRAPH_API = 'https://graph.microsoft.com/v1.0';
 
+const uploadReport = {
+  uploads: 0,
+  failures: 0,
+  failedList: [],
+  failedFolderCreations: 0,
+};
+
 // Sleep function using Promise
 async function sleep(ms) {
   return new Promise((resolve) => {
@@ -81,7 +88,6 @@ async function uploadFile(accessToken, driveId, folderId, file) {
  * @param driveId The root drive id for the SharePoint site
  * @param folderId The folder id for the SharePoint site, under the drive.
  * @param sourceFolders The folders to create (name and relative path to the mountpoint)
- * @param uploadReport
  * @returns {Promise<boolean>}
  */
 async function createFoldersIfNecessary(
@@ -89,7 +95,6 @@ async function createFoldersIfNecessary(
   driveId,
   folderId,
   sourceFolders,
-  uploadReport,
 ) {
   const folderMap = new Map();
   folderMap.set('', folderId);
@@ -205,10 +210,9 @@ async function getSourceStructure(srcFolder, structure = undefined) {
  * @param folderId Destination folder id within the drive id root
  * @param sourceFiles The local path to each file to be uploaded.
  * @param delay The delay, in milliseconds
- * @param uploadReport
  * @returns {Promise<void>}
  */
-async function uploadFiles(accessToken, driveId, folderId, sourceFiles, delay, uploadReport) {
+async function uploadFiles(accessToken, driveId, folderId, sourceFiles, delay) {
   for (const item of sourceFiles) {
     core.info(`Uploading file: ${item.path}`);
     const success = await uploadFile(accessToken, driveId, folderId, item);
@@ -236,12 +240,6 @@ export async function run() {
   const zipDir = core.getInput('zip_dir');
   const delay = core.getInput('delay');
   const docsDir = `${zipDir}/contents/docx`;
-  const uploadReport = {
-    uploads: 0,
-    failures: 0,
-    failedList: [],
-    failedFolderCreations: 0,
-  };
 
   core.info(`Upload files from ${docsDir} with a delay of ${delay} milliseconds between uploads.`);
 
@@ -260,12 +258,11 @@ export async function run() {
         name: folder.name,
         path: folder.path.replace(docsDir, ''),
       })),
-      uploadReport,
     );
 
     // Now upload each file, knowing the destination folders already exist.
     core.info(`Uploading ${JSON.stringify(sourceData.files)} files.`);
-    await uploadFiles(accessToken, driveId, folderId, sourceData.files, delay, uploadReport);
+    await uploadFiles(accessToken, driveId, folderId, sourceData.files, delay);
     core.info(`Upload report: ${JSON.stringify(uploadReport)}`);
     core.setOutput('upload_failed_list', uploadReport.failedList.join(', '));
     core.setOutput('upload_successes', uploadReport.uploads);
