@@ -23,6 +23,10 @@ const uploadReport = {
   failedList: [],
   failedFolderCreations: 0,
 };
+const sourceStructure = {
+  folders: [],
+  files: [],
+};
 
 // Sleep function using Promise
 async function sleep(ms) {
@@ -84,7 +88,7 @@ async function uploadFile(accessToken, driveId, folderId, file) {
       },
     );
 
-    core.info(`File ${file.path} uploaded successfully. ${JSON.stringify(response)}`);
+    core.info(`File ${file.path} uploaded successfully.`);
 
     return !!response;
   } catch (error) {
@@ -178,14 +182,9 @@ async function createFoldersIfNecessary(
  * the upload of files, using their full path, knowing the destination
  * folders already exist.
  * @param srcFolder
- * @param structure
  * @returns {Promise<*>}
  */
-async function getSourceStructure(srcFolder, structure = undefined) {
-  const newStructure = structure || {
-    folders: [],
-    files: [],
-  };
+async function populateSourceStructure(srcFolder) {
   const entries = fs.readdirSync(srcFolder, { withFileTypes: true });
   core.info(`Reading source items from ${srcFolder}`);
 
@@ -193,24 +192,24 @@ async function getSourceStructure(srcFolder, structure = undefined) {
     const fullPath = path.join(srcFolder, entry.name);
 
     if (entry.isDirectory()) {
-      core.info(`Recording directory and recursing it: ${fullPath}`);
-      newStructure.folders.push({
+      core.info(`> Recording directory and recursing it: ${fullPath}`);
+      sourceStructure.folders.push({
         name: entry.name,
         path: fullPath,
       });
-      await getSourceStructure(fullPath, structure);
+      await populateSourceStructure(fullPath, structure);
     } else if (entry.isFile()) {
-      core.info(`Adding file: ${fullPath}`);
-      newStructure.files.push({
+      core.info(`> Adding file: ${fullPath}`);
+      sourceStructure.files.push({
         name: entry.name,
         path: fullPath,
       });
     } else {
-      core.info(`Skipping non-file/non-directory item: ${fullPath}`);
+      core.info(`> Skipping non-file/non-directory item: ${fullPath}`);
     }
   }
 
-  return newStructure;
+  core.info(`Done with ${srcFolder}`);
 }
 
 /**
@@ -227,7 +226,6 @@ async function getSourceStructure(srcFolder, structure = undefined) {
  */
 async function uploadFiles(accessToken, driveId, folderId, sourceFiles, delay) {
   for (const item of sourceFiles) {
-    core.info(`Uploading file: ${item.path}`);
     const success = await uploadFile(accessToken, driveId, folderId, item);
     if (success) {
       // eslint-disable-next-line no-param-reassign
@@ -258,28 +256,27 @@ export async function run() {
 
   try {
     // Get the source structure (folders, files, etc.).
-    core.info(`Extracting information from ${docsDir}`);
-    const sourceData = await getSourceStructure(docsDir);
+    await populateSourceStructure(docsDir);
 
     // Now create the folder structure in SharePoint, if necessary.
-    core.info(`Creating ${JSON.stringify(sourceData.folders)} folders, if necessary.`);
+    core.info(`Creating ${JSON.stringify(sourceStructure.folders.length)} folders, if necessary.`);
     await createFoldersIfNecessary(
       accessToken,
       driveId,
       folderId,
-      sourceData.folders.map((folder) => ({
+      sourceStructure.folders.map((folder) => ({
         name: folder.name,
         path: folder.path.replace(docsDir, ''),
       })),
     );
 
     // Now upload each file, knowing the destination folders already exist.
-    core.info(`Uploading ${JSON.stringify(sourceData.files)} files.`);
+    core.info(`Uploading ${sourceStructure.files.length} files.`);
     await uploadFiles(
       accessToken,
       driveId,
       folderId,
-      sourceData.files.map((nextFile) => ({
+      sourceStructure.files.map((nextFile) => ({
         name: nextFile.name,
         path: nextFile.path,
         relative: nextFile.path.replace(docsDir, ''),
