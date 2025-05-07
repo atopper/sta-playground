@@ -12,6 +12,7 @@
 
 import core from '@actions/core';
 import fs from 'fs';
+import mime from 'mime-types';
 import path from 'path';
 
 const GRAPH_API = 'https://graph.microsoft.com/v1.0';
@@ -58,23 +59,26 @@ async function graphFetch(token, endpoint, initOptions) {
  * @param accessToken SharePoint access token
  * @param driveId Destination root drive id
  * @param folderId Destination folder id within the drive id root
- * @param file The name and full, local path to the file to be uploaded.
+ * @param file The file name, full local and relative target path of the file to be uploaded.
  * @returns {Promise<boolean>}
  */
 async function uploadFile(accessToken, driveId, folderId, file) {
   const fileStream = fs.createReadStream(file.path);
+  const mimeType = mime.lookup(file.path) || 'application/octet-stream';
+
+  core.info(`Uploading ${file.path} with mime type ${mimeType}`);
 
   try {
     const response = await graphFetch(
       accessToken,
-      `/drives/${driveId}/items/${folderId}:${file.path}/content`,
+      `/drives/${driveId}/items/${folderId}:${file.relative}/content`,
       {
         method: 'PUT',
         body: fileStream,
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/octet-stream',
           Accept: 'application/json',
+          'Content-Type': mimeType,
         },
         duplex: 'half', // Required for streaming requests
       },
@@ -216,7 +220,7 @@ async function getSourceStructure(srcFolder, structure = undefined) {
  * @param accessToken SharePoint access token
  * @param driveId Destination root drive id
  * @param folderId Destination folder id within the drive id root
- * @param sourceFiles The local path to each file to be uploaded.
+ * @param sourceFiles The file name, full local and relative target path to each file to be uploaded.
  * @param delay The delay, in milliseconds
  * @returns {Promise<void>}
  */
@@ -230,7 +234,7 @@ async function uploadFiles(accessToken, driveId, folderId, sourceFiles, delay) {
     } else {
       // eslint-disable-next-line no-param-reassign
       uploadReport.failures += 1;
-      uploadReport.failedList.push(item);
+      uploadReport.failedList.push(item.path);
     }
 
     await sleep(delay);
@@ -270,7 +274,18 @@ export async function run() {
 
     // Now upload each file, knowing the destination folders already exist.
     core.info(`Uploading ${JSON.stringify(sourceData.files)} files.`);
-    await uploadFiles(accessToken, driveId, folderId, sourceData.files, delay);
+    await uploadFiles(
+      accessToken,
+      driveId,
+      folderId,
+      sourceData.files.map((nextFile) => ({
+        name: nextFile.name,
+        path: nextFile.path,
+        relative: nextFile.path.replace(docsDir, ''),
+      })),
+      delay,
+    );
+
     core.info(`Upload report: ${JSON.stringify(uploadReport)}`);
     core.setOutput('upload_failed_list', uploadReport.failedList.join(', '));
     core.setOutput('upload_successes', uploadReport.uploads);
