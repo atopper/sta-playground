@@ -103,6 +103,8 @@ jobs:
           npm install
           cd ../sta-azure-helper
           npm install
+          cd ../sta-upload-sharepoint
+          npm install
 
       - name: Report if inputs are invalid
         if: ${{ env.errorMessage != '' }}
@@ -250,10 +252,8 @@ jobs:
 
       - name: Run SharePoint upload action
         id: upload-sharepoint
-        uses: ./.github/actions/upload-sharepoint
+        uses: ./.github/actions/sta-upload-sharepoint
         with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
           access_token: ${{ steps.azure-auth.outputs.access_token }}
           drive_id: ${{ steps.get-drive-info.outputs.drive_id }}
           folder_id: ${{ steps.get-drive-info.outputs.folder_id }}
