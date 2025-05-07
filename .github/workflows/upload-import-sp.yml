@@ -230,12 +230,12 @@ jobs:
           sp_folder_path: ${{ fromJSON(steps.mountpoint_data.outputs.data).path }}
 
       - name: Report if Drive id failed
-        if: ${{ steps.get-drive-info.outputs.drive_id == '' }}
+        if: ${{ steps.get-drive-info.outputs.folder_id == '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Could not extract the drive id from the SharePoint site. Check the output of the associated workflow step. ${{ env.ACTION_URL }}
+          message: Could not extract the folder id from the SharePoint site. Check the output of the associated workflow step. ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
@@ -249,26 +249,26 @@ jobs:
           agent_name: upload-import-sp
 
       - name: Run SharePoint upload action
-        id: sharepoint-upload-step
-        shell: bash
-        run: |
-          bash .github/actions/upload-sharepoint/upload-to-sharepoint.sh \
-            "${{ steps.download-zip.outputs.temp_dir }}/contents/docx" \
-            "${{ steps.azure-auth.outputs.access_token }}" \
-            "${{ steps.get-drive-info.outputs.drive_id }}" \
-            "${{ github.event.inputs.aemy_callbacks }}" \
-            "${{ github.event.inputs.aemy_context }}"
+        id: upload-sharepoint
+        uses: ./.github/actions/upload-sharepoint
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          access_token: ${{ steps.azure-auth.outputs.access_token }}
+          drive_id: ${{ steps.get-drive-info.outputs.drive_id }}
+          folder_id: ${{ steps.get-drive-info.outputs.folder_id }}
+          zip_dir: ${{ steps.download-zip.outputs.temp_dir }}
+          delay: 2000
 
       - name: Analyze upload results
         run: |
-          echo "Successes: ${{ env.UPLOAD_SUCCESSES }}"
-          echo "Failed Files: ${{ env.UPLOAD_FAILED_FILES }}"
-          echo "Message: ${{ env.UPLOAD_MESSAGE }}"
-          echo "Failures: ${{ env.UPLOAD_FAILURES }}"
-          echo "Folder creation failures: ${{ env.UPLOAD_FOLDER_CREATION_FAILURES }}"
+          echo "Successes: ${{ env.upload-sharepoint.outputs.upload_successes }}"
+          echo "Failed Files: ${{ env.upload-sharepoint.outputs.upload_failed_list }}"
+          echo "Failures: ${{ env.upload-sharepoint.outputs.upload_failures }}"
+          echo "Message: ${{ env.upload-sharepoint.outputs.error_message || 'None' }}"
           
-          if [ "${{ env.UPLOAD_FAILURES }}" -gt 0 ]; then
-            message="Failed to upload ${{ env.UPLOAD_FAILURES }} files. Uploaded ${{ env.UPLOAD_SUCCESSES }} files successfully. ${{ env.ACTION_URL }}"
+          if [ "${{ env.upload-sharepoint.outputs.upload_failures }}" -gt 0 ]; then
+            message="Failed to upload ${{ env.upload-sharepoint.outputs.upload_failures }} files. Uploaded ${{ env.upload-sharepoint.outputs.upload_successes }} files successfully. ${{ env.ACTION_URL }}"
             echo "errorMessage=$message" >> $GITHUB_ENV
           fi
 
@@ -277,7 +277,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: "✅ Success count: ${{ env.UPLOAD_SUCCESSES }}JS_LF❌ Failed count: ${{ env.UPLOAD_FAILURES }}JS_LF🚨 Failed files: ${{ env.UPLOAD_FAILED_FILES }}"
+          message: "✅ Success count: ${{ env.upload-sharepoint.outputs.upload_successes }}JS_LF❌ Failed count: ${{ env.upload-sharepoint.outputs.upload_failures }}JS_LF🚨 Failed files: ${{ env.upload-sharepoint.outputs.upload_failed_list }}"
           status_type: progress
           agent_name: upload-import-sp
 
@@ -296,7 +296,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: SharePoint upload succeeded. Uploaded ${{ env.UPLOAD_SUCCESSES }} files.
+          message: SharePoint upload succeeded. Uploaded ${{ env.upload-sharepoint.outputs.upload_successes }} files.
           status_type: ok
           agent_name: upload-import-sp
 
