@@ -1,307 +1,300 @@
-name: STA-AEMY - Upload to SharePoint
+/*
+ * Copyright 2025 Adobe. All rights reserved.
+ * This file is licensed to you under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License. You may obtain a copy
+ * of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under
+ * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+ * OF ANY KIND, either express or implied. See the License for the specific language
+ * governing permissions and limitations under the License.
+ */
 
-description: |
-  Uploads the import zip file to SharePoint. The zip file is downloaded from a URL and extracted. The contents are uploaded to SharePoint.
-  The upload is done using the SharePoint Upload Action.
-  The action is triggered by a workflow dispatch event with inputs as follows.
+import core from '@actions/core';
+import fs from 'fs';
+import mime from 'mime-types';
+import path from 'path';
 
-env:
-  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-  # AZURE_CLIENT_ID might be considered the AZURE APP ID, but that meaning can be unclear.
-  AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-  # Base-64 thumbprint
-  AZURE_THUMBPRINT: ${{ secrets.AZURE_THUMBPRINT }}
-  # Base-64 encoded key
-  AZURE_PRIVATE_KEY_BASE64: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
-  # Encrypted cert key password
-  AZURE_PFX_PASSWORD: ${{ secrets.AZURE_PFX_PASSWORD }}
-on:
-  workflow_dispatch:
-    inputs:
-      # Zip URL is only valid for 60 minutes.
-      zip_url:
-        description: 'The URL of the zip file to download.'
-        required: true
-        type: password
-      aemy_callbacks:
-        description: 'The AEMY context as a string.'
-        required: true
-        type: password
-      aemy_context:
-        description: 'The AEMY context as a string.'
-        required: true
-      root_mountpoint:
-        description: 'The mountpoint mapped to the root of the SharePoint site.'
-        required: true
-      action_url:
-        description: 'The URL that shows state of the workflow as an aid for the user.'
-        required: false
-      skip_assets:
-        description: 'Ignored parameter'
-        required: false
+const GRAPH_API = 'https://graph.microsoft.com/v1.0';
 
-permissions:
-  contents: read
+const uploadReport = {
+  uploads: 0,
+  failures: 0,
+  failedList: [],
+  failedFolderCreations: 0,
+};
+const sourceStructure = {
+  folders: [],
+  files: [],
+};
 
-jobs:
-  read-and-upload-sharepoint-import-zip:
-    runs-on: ubuntu-latest
+// Sleep function using Promise
+async function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
-    steps:
-      - name: Check inputs
-        shell: bash
-        run: |
-          echo NPM Version:
-          npm --version
-          
-          # Optional parameters
-          if [ -n "${{ github.event.inputs.action_url }}" ]; then
-            ACTION_URL="JS_LFJS_LF🕵 See the Action URL to check the progress/results of the workflow: ${{ github.event.inputs.action_url }}"
-            echo "ACTION_URL=$ACTION_URL" >> $GITHUB_ENV
-          fi
-          
-          # Required parameters
-          missing_vars=""
-          bad_format=""
-      
-          if [ -z "${{ env.AZURE_TENANT_ID }}" ]; then
-            missing_vars+="JS_LF- AZURE_TENANT_ID "
-          fi
-          if [ -z "${{ env.AZURE_CLIENT_ID }}" ]; then
-            missing_vars+="JS_LF- AZURE_CLIENT_ID "
-          fi
-          if [ -z "${{ env.AZURE_THUMBPRINT }}" ]; then
-            missing_vars+="JS_LF- AZURE_THUMBPRINT "
-          fi
-          if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
-            missing_vars+="JS_LF- AZURE_PRIVATE_KEY_BASE64 "
-          elif ! echo "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" | base64 --decode > /dev/null 2>&1; then
-            bad_format+="JS_LF- AZURE_PRIVATE_KEY_BASE64"
-          fi
+async function graphFetch(token, endpoint, initOptions) {
+  const init = initOptions || {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    },
+  };
 
-          if [ -n "$missing_vars" ]; then
-            errorMessage="❌ The following variables are not set in your GitHub repo: $missing_vars JS_LF"
-            echo "errorMessage=$errorMessage" >> $GITHUB_ENV
-          fi
-          if [ -n "$bad_format" ]; then
-            errorMessage+="❌ The following variables in your GitHub repo are in the wrong format: $bad_format"
-            echo "errorMessage=$errorMessage" >> $GITHUB_ENV
-          fi
+  core.debug(`Accessing Graph API endpoint: ${GRAPH_API}${endpoint}`);
+  const res = await fetch(
+    `${GRAPH_API}${endpoint}`,
+    init,
+  );
 
-      - name: Checkout
-        uses: actions/checkout@v4
+  if (!res.ok) {
+    const errorText = await res.text();
+    core.warning(`Graph API error ${res.status}: ${errorText}`);
+    throw new Error(`Graph API error ${res.status}: ${errorText}`);
+  }
 
-      - name: Set up actions
-        run: |
-          cd .github/actions/sta-status
-          npm install
-          cd ../sta-import-zip
-          npm install
-          cd ../sta-mountpoint
-          npm install
-          cd ../sta-sp-drive
-          npm install
-          cd ../sta-azure-helper
-          npm install
-          cd ../sta-upload-sharepoint
-          npm install
+  return res.json();
+}
 
-      - name: Report if inputs are invalid
-        if: ${{ env.errorMessage != '' }}
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ env.errorMessage }}
-          status_type: error
-          agent_name: upload-import-sp
+/**
+ *
+ * @param accessToken SharePoint access token
+ * @param driveId Destination root drive id
+ * @param folderId Destination folder id within the drive id root
+ * @param file The file name, full local and relative target path of the file to be uploaded.
+ * @returns {Promise<boolean>}
+ */
+async function uploadFile(accessToken, driveId, folderId, file) {
+  const fileStream = fs.createReadStream(file.path);
+  const mimeType = mime.lookup(file.path) || 'application/octet-stream';
 
-      - name: Progress 1 - Setup
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: Inputs look good. Now setting up the upload. (Step 1 of 5).
-          status_type: progress
-          agent_name: upload-import-sp
+  core.debug(`Uploading ${file.path} with mime type ${mimeType}`);
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get install -y jq openssl
+  try {
+    const response = await graphFetch(
+      accessToken,
+      `/drives/${driveId}/items/${folderId}:${file.relative}:/content`,
+      {
+        method: 'PUT',
+        body: fileStream,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json',
+          'Content-Type': mimeType,
+        },
+        duplex: 'half', // Required for streaming requests
+      },
+    );
 
-      - name: Parse mountpoint
-        id: mountpoint_data
-        uses: ./.github/actions/sta-mountpoint
-        with:
-          mountpoint: ${{ github.event.inputs.root_mountpoint }}
-          mountpoint_type: 'sharepoint'
+    core.debug(`File ${file.path} uploaded successfully.`);
 
-      - name: Report if mountpoint failed
-        if: ${{ steps.mountpoint_data.outputs.error_message != '' }}
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ steps.mountpoint_data.outputs.error_message }} ${{ env.ACTION_URL }}
-          status_type: error
-          agent_name: upload-import-sp
+    return !!response;
+  } catch (error) {
+    core.warning(`Failed to upload file ${file.path}: ${error.message}`);
+  }
 
-      - name: Progress 2 - Extracting zip
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: Downloading and extracting content from the Import zip... (Step 2 of 5).
-          status_type: progress
-          agent_name: upload-import-sp
+  return false;
+}
 
-      - name: Download and extract import zip file
-        id: download-zip
-        uses: ./.github/actions/sta-import-zip
-        with:
-          download_url: ${{ github.event.inputs.zip_url }}
+/**
+ * Create the folders in SharePoint if they don't exist.
+ * @param accessToken
+ * @param driveId The root drive id for the SharePoint site
+ * @param folderId The folder id for the SharePoint site, under the drive.
+ * @param sourceFolders The folders to create (name and relative path to the mountpoint)
+ * @returns {Promise<boolean>}
+ */
+async function createFoldersIfNecessary(
+  accessToken,
+  driveId,
+  folderId,
+  sourceFolders,
+) {
+  const folderMap = new Map();
+  folderMap.set('', folderId);
 
-      - name: Report if zip management failed
-        if: ${{ steps.download-zip.outputs.error_message != '' }}
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ steps.download-zip.outputs.error_message }} ${{ env.ACTION_URL }}
-          status_type: error
-          agent_name: upload-import-sp
+  for (const folder of sourceFolders) {
+    const segments = folder.path.split('/');
+    // Current path is the path as we increment through the segments.
+    let currentPath;
+    // The parent id is the id of the folder we are creating the next segment in.
+    let parentId = folderId;
 
-      - name: Progress 3 - Getting upload authorization
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: Zip extracted with ${{ steps.download-zip.outputs.file_count }} files. Getting upload authorization... (Step 3 of 5).
-          status_type: progress
-          agent_name: upload-import-sp
+    for (const segment of segments) {
+      currentPath = currentPath ? `${currentPath}/${segment}` : segment;
 
-      - name: Calculate duration
-        id: calculate-duration
-        shell: bash
-        run: |
-          file_count=${{ steps.download-zip.outputs.file_count }}
-          if [[ -z "$file_count" || ! "$file_count" =~ ^[0-9]+$ ]]; then
-            file_count=0
-          fi
-          duration=$((file_count * 2 + 20))
-          echo "UPLOAD_DURATION=$duration" >> $GITHUB_ENV
+      if (folderMap.has(currentPath)) {
+        parentId = folderMap.get(currentPath);
+      } else {
+        // Create/check folder
+        const url = `${GRAPH_API}/drives/${driveId}/items/${parentId}/children`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: segment,
+            folder: {},
+            '@microsoft.graph.conflictBehavior': 'fail',
+          }),
+        });
 
-      - name: Create Azure Access Token
-        uses: ./.github/actions/sta-azure-helper
-        id: azure-auth
-        with:
-          tenant_id: ${{ env.AZURE_TENANT_ID }}
-          client_id: ${{ env.AZURE_CLIENT_ID }}
-          key: ${{ env.AZURE_PRIVATE_KEY_BASE64 }}
-          password: ${{ env.AZURE_PFX_PASSWORD }}
-          thumbprint: ${{ env.AZURE_THUMBPRINT }}
-          # The duration is estimated as 2 seconds per file, plus 20 seconds for the initial setup (min will be 3600).
-          duration: ${{ env.UPLOAD_DURATION }}
+        if (res.ok) {
+          const data = await res.json();
+          folderMap.set(currentPath, data.id);
+          parentId = data.id;
+        } else if (res.status === 409) {
+          // Already exists - get its data.
+          const existing = await graphFetch(
+            accessToken,
+            `/drives/${driveId}/items/${parentId}/children?$filter=name eq '${segment}'`,
+          );
+          if (!existing?.value || existing.value.length === 0) {
+            core.warning(`Failed to get data for existing folder ${currentPath}: ${res.status} ${res.statusText}`);
+            // eslint-disable-next-line no-param-reassign
+            throw new Error(`Failed to get data for existing folder ${currentPath}. Upload is aborted.`);
+          } else if (existing.value.length !== 1) {
+            core.warning(`Found multiple existing folders for ${currentPath}.`);
+            // eslint-disable-next-line no-param-reassign
+            throw new Error(`Found multiple existing folders for ${currentPath}. Upload is aborted.`);
+          }
+          const { id } = existing.value[0];
+          folderMap.set(currentPath, id);
+          parentId = id;
+        } else {
+          core.warning(`Failed to create folder ${currentPath}: ${res.status} ${res.statusText}`);
+          // eslint-disable-next-line no-param-reassign
+          uploadReport.failedFolderCreations += 1;
+          throw new Error(`Failed to create folder ${currentPath}. Upload is aborted.`);
+        }
+      }
+    }
+  }
+}
 
-      - name: Report if access token failed
-        if: ${{ steps.azure-auth.outputs.access_token == '' }}
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: Failed to get access token. See the output of the previous workflow step. ${{ env.ACTION_URL }}
-          status_type: error
-          agent_name: upload-import-sp
+/**
+ * Recursively get the structure of the source folder.  This is used to
+ * determine the folder structure to create in SharePoint and simplify
+ * the upload of files, using their full path, knowing the destination
+ * folders already exist.
+ * @param srcFolder
+ * @returns {Promise<*>}
+ */
+async function populateSourceStructure(srcFolder) {
+  const entries = fs.readdirSync(srcFolder, { withFileTypes: true });
+  core.debug(`Reading source items from ${srcFolder}`);
 
-      - name: Progress 4 - Getting drive information
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: SharePoint access granted. Now fetching drive id... (Step 4 of 5).
-          status_type: progress
-          agent_name: upload-import-sp
+  for (const entry of entries) {
+    const fullPath = path.join(srcFolder, entry.name);
 
-      - name: Get site and drive id
-        uses: ./.github/actions/sta-sp-drive
-        id: get-drive-info
-        with:
-          token: ${{ steps.azure-auth.outputs.access_token }}
-          sp_host: ${{ fromJSON(steps.mountpoint_data.outputs.data).host }}
-          sp_site_path: ${{ fromJSON(steps.mountpoint_data.outputs.data).site }}
-          sp_folder_path: ${{ fromJSON(steps.mountpoint_data.outputs.data).path }}
+    if (entry.isDirectory()) {
+      core.debug(`> Recording directory and recursing it: ${fullPath}`);
+      sourceStructure.folders.push({
+        name: entry.name,
+        path: fullPath,
+      });
+      await populateSourceStructure(fullPath);
+    } else if (entry.isFile()) {
+      core.debug(`> Adding file: ${fullPath}`);
+      sourceStructure.files.push({
+        name: entry.name,
+        path: fullPath,
+      });
+    } else {
+      core.debug(`> Skipping non-file/non-directory item: ${fullPath}`);
+    }
+  }
 
-      - name: Report if Drive id failed
-        if: ${{ steps.get-drive-info.outputs.folder_id == '' }}
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: Could not extract the folder id from the SharePoint site. Check the output of the associated workflow step. ${{ env.ACTION_URL }}
-          status_type: error
-          agent_name: upload-import-sp
+  core.debug(`Done with ${srcFolder}`);
+}
 
-      - name: Progress 5 - Uploading to SharePoint
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: Drive ID acquired. Now starting upload... (Step 5 of 5).
-          status_type: progress
-          agent_name: upload-import-sp
+/**
+ * Upload all the files from a source folder to SharePoint.  For each sub-folder
+ * encountered, ensure it is created in SharePoint, and then recursively upload that
+ * folder's contents.
+ * @param accessToken SharePoint access token
+ * @param driveId Destination root drive id
+ * @param folderId Destination folder id within the drive id root
+ * @param sourceFiles The file name, full local and relative target path to each
+ *                    file to be uploaded.
+ * @param delay The delay, in milliseconds
+ * @returns {Promise<void>}
+ */
+async function uploadFiles(accessToken, driveId, folderId, sourceFiles, delay) {
+  for (const item of sourceFiles) {
+    const success = await uploadFile(accessToken, driveId, folderId, item);
+    if (success) {
+      // eslint-disable-next-line no-param-reassign
+      uploadReport.uploads += 1;
+    } else {
+      // eslint-disable-next-line no-param-reassign
+      uploadReport.failures += 1;
+      uploadReport.failedList.push(item.path);
+    }
 
-      - name: Run SharePoint upload action
-        id: upload-sharepoint
-        uses: ./.github/actions/sta-upload-sharepoint
-        with:
-          access_token: ${{ steps.azure-auth.outputs.access_token }}
-          drive_id: ${{ steps.get-drive-info.outputs.drive_id }}
-          folder_id: ${{ steps.get-drive-info.outputs.folder_id }}
-          zip_dir: ${{ steps.download-zip.outputs.temp_dir }}
-          delay: 2000
+    await sleep(delay);
+  }
+}
 
-      - name: Analyze upload results
-        run: |
-          echo "Successes: ${{ steps.upload-sharepoint.outputs.upload_successes }}"
-          echo "Failed Files: ${{ steps.upload-sharepoint.outputs.upload_failed_list }}"
-          echo "Failures: ${{ steps.upload-sharepoint.outputs.upload_failures }}"
-          echo "Message: ${{ steps.upload-sharepoint.outputs.error_message }}"
-          
-          if [ "${{ steps.upload-sharepoint.outputs.upload_failures }}" != "0" ]; then
-            message="Failed to upload ${{ steps.upload-sharepoint.outputs.upload_failures }} files. Uploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files successfully. ${{ env.ACTION_URL }}"
-            echo "errorMessage=$message" >> $GITHUB_ENV
-          fi
+/**
+ * Given a folder full of import content to upload, and the necessary
+ * @returns {Promise<void>}
+ */
+export async function run() {
+  const accessToken = core.getInput('access_token');
+  const driveId = core.getInput('drive_id'); // Shared Documents
+  const folderId = core.getInput('folder_id'); // sites/esaas-demos/andrew-top
+  const zipDir = core.getInput('zip_dir');
+  const delay = core.getInput('delay');
+  const docsDir = `${zipDir}/contents/docx`;
 
-      - name: Progress 6 - Done upload
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: "✅ Success count: ${{ steps.upload-sharepoint.outputs.upload_successes }}JS_LF❌ Failed count: ${{ steps.upload-sharepoint.outputs.upload_failures }}JS_LF🚨 Failed files: ${{ steps.upload-sharepoint.outputs.upload_failed_list }}"
-          status_type: progress
-          agent_name: upload-import-sp
+  core.info(`Upload files from ${docsDir} with a delay of ${delay} milliseconds between uploads.`);
 
-      - name: Report if upload failed
-        if: ${{ env.errorMessage != '' }}
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ env.errorMessage }}
-          status_type: error
-          agent_name: upload-import-sp
+  try {
+    // Get the source structure (folders, files, etc.).
+    await populateSourceStructure(docsDir);
 
-      - name: Report upload success
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: SharePoint upload succeeded. Uploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files.
-          status_type: ok
-          agent_name: upload-import-sp
+    // Now create the folder structure in SharePoint, if necessary.
+    core.info(`Creating ${JSON.stringify(sourceStructure.folders.length)} folders, if necessary.`);
+    await createFoldersIfNecessary(
+      accessToken,
+      driveId,
+      folderId,
+      sourceStructure.folders.map((folder) => ({
+        name: folder.name,
+        path: folder.path.replace(docsDir, ''),
+      })),
+    );
 
-      - name: Clean up temporary files
-        if: always()
-        run: |
-          # Delete the temp dir immediately, having system delete it eventually as a redundancy.
-          rm -rf "${{ steps.download-zip.outputs.temp_dir }}"
+    // Now upload each file, knowing the destination folders already exist.
+    core.info(`Uploading ${sourceStructure.files.length} files.`);
+    await uploadFiles(
+      accessToken,
+      driveId,
+      folderId,
+      sourceStructure.files.map((nextFile) => ({
+        name: nextFile.name,
+        path: nextFile.path,
+        relative: nextFile.path.replace(docsDir, ''),
+      })),
+      delay,
+    );
+
+    core.info(`Upload report: ${JSON.stringify(uploadReport)}`);
+    core.setOutput('upload_successes', String(uploadReport.uploads));
+    core.setOutput('upload_failures', String(uploadReport.failures));
+    core.setOutput('upload_failed_list', uploadReport.failedList.join(', '));
+    if (uploadReport.failures > 0 || uploadReport.failedList.length > 0) {
+      core.setOutput('error_message', '❌ Upload Error: Some uploads failed. Check the workflow for more details.');
+    }
+  } catch (error) {
+    core.warning(`Failed upload the files: ${error.message}`);
+    core.setOutput('error_message', `❌ Upload Error: ${error.message}`);
+  }
+}
+
+await run();
