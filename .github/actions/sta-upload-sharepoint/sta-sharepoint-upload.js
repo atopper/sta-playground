@@ -176,20 +176,20 @@ async function getSourceStructure(srcFolder, structure = undefined) {
     const fullPath = path.join(srcFolder, entry.name);
 
     if (entry.isDirectory()) {
-      core.debug(`Recording directory and recursing it: ${fullPath}`);
+      core.info(`Recording directory and recursing it: ${fullPath}`);
       newStructure.folders.push({
         name: entry.name,
         path: fullPath,
       });
       await getSourceStructure(fullPath, structure);
     } else if (entry.isFile()) {
-      core.debug(`Adding file: ${entry.name}`);
+      core.info(`Adding file: ${fullPath}`);
       newStructure.files.push({
         name: entry.name,
         path: fullPath,
       });
     } else {
-      core.debug(`Skipping non-file/non-directory item: ${entry.name}`);
+      core.info(`Skipping non-file/non-directory item: ${fullPath}`);
     }
   }
 
@@ -210,7 +210,7 @@ async function getSourceStructure(srcFolder, structure = undefined) {
  */
 async function uploadFiles(accessToken, driveId, folderId, sourceFiles, delay, uploadReport) {
   for (const item of sourceFiles) {
-    core.debug(`Uploading file: ${item.path}`);
+    core.info(`Uploading file: ${item.path}`);
     const success = await uploadFile(accessToken, driveId, folderId, item);
     if (success) {
       // eslint-disable-next-line no-param-reassign
@@ -235,6 +235,7 @@ export async function run() {
   const folderId = core.getInput('folder_id'); // sites/esaas-demos/andrew-top
   const zipDir = core.getInput('zip_dir');
   const delay = core.getInput('delay');
+  const docsDir = `${zipDir}/contents/docx`;
   const uploadReport = {
     uploads: 0,
     failures: 0,
@@ -242,12 +243,12 @@ export async function run() {
     failedFolderCreations: 0,
   };
 
-  core.info(`Upload files from ${zipDir} with a delay of ${delay} milliseconds between uploads.`);
+  core.info(`Upload files from ${docsDir} with a delay of ${delay} milliseconds between uploads.`);
 
   try {
     // Get the source structure (folders, files, etc.).
-    core.info(`Extracting information from ${zipDir}`);
-    const sourceData = await getSourceStructure(zipDir);
+    core.info(`Extracting information from ${docsDir}`);
+    const sourceData = await getSourceStructure(docsDir);
 
     // Now create the folder structure in SharePoint, if necessary.
     core.info(`Creating ${JSON.stringify(sourceData.folders)} folders, if necessary.`);
@@ -257,7 +258,7 @@ export async function run() {
       folderId,
       sourceData.folders.map((folder) => ({
         name: folder.name,
-        path: folder.path.replace(zipDir, ''),
+        path: folder.path.replace(docsDir, ''),
       })),
       uploadReport,
     );
