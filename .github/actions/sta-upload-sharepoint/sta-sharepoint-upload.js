@@ -76,6 +76,7 @@ async function uploadFile(accessToken, driveId, folderId, file) {
           'Content-Type': 'application/octet-stream',
           Accept: 'application/json',
         },
+        duplex: 'half', // Required for streaming requests
       },
     );
 
