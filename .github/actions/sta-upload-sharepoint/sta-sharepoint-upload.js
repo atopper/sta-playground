@@ -220,7 +220,8 @@ async function getSourceStructure(srcFolder, structure = undefined) {
  * @param accessToken SharePoint access token
  * @param driveId Destination root drive id
  * @param folderId Destination folder id within the drive id root
- * @param sourceFiles The file name, full local and relative target path to each file to be uploaded.
+ * @param sourceFiles The file name, full local and relative target path to each
+ *                    file to be uploaded.
  * @param delay The delay, in milliseconds
  * @returns {Promise<void>}
  */

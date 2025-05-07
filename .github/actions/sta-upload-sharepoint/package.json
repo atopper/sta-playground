@@ -8,11 +8,16 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix ."
   },
-  "keywords": ["STA", "Experience Catalyst", "SharePoint Upload"],
+  "keywords": [
+    "STA",
+    "Experience Catalyst",
+    "SharePoint Upload"
+  ],
   "author": "Experience Catalyst",
   "license": "ISC",
   "description": "Upload the Import Zip contents to SharePoint",
   "dependencies": {
-    "@actions/core": "^1.11.1"
+    "@actions/core": "^1.11.1",
+    "mime-types": "^3.0.1"
   }
 }
