@@ -31,10 +31,17 @@ async function sleep(ms) {
 }
 
 async function graphFetch(token, endpoint, initOptions) {
+  const init = initOptions || {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    },
+  };
+
   core.info(`Accessing Graph API endpoint: ${GRAPH_API}${endpoint}`);
   const res = await fetch(
     `${GRAPH_API}${endpoint}`,
-    initOptions,
+    init,
   );
 
   if (!res.ok) {
