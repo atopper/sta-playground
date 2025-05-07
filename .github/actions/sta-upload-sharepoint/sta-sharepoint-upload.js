@@ -266,7 +266,7 @@ export async function run() {
     core.info(`Upload report: ${JSON.stringify(uploadReport)}`);
     core.setOutput('upload_failed_list', uploadReport.failedList.join(', '));
     core.setOutput('upload_successes', uploadReport.uploads);
-    core.setOutput('upload_failures', uploadReport.uploads);
+    core.setOutput('upload_failures', uploadReport.failures);
     if (uploadReport.uploads > 0 || uploadReport.failedList.length > 0) {
       core.setOutput('error_message', '❌ Upload Error: Some uploads failed. Check the workflow for more details.');
     }
