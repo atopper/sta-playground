@@ -66,8 +66,8 @@ async function fetchZip(downloadUrl, zipDestination) {
 
 /**
  * Unzip one file at a time.
- * @param zipPath
- * @param contentsDir
+ * @param {string} zipPath
+ * @param {string} contentsDir
  * @returns {Promise<void>}
  */
 async function extractZip(zipPath, contentsDir) {

@@ -14,8 +14,8 @@ import core from '@actions/core';
 
 /**
  * Extracts the mountpoint data from the given mountpoint value.
- * @param rootMountpoint
- * @param type
+ * @param {string} rootMountpoint
+ * @param {string} type
  * @returns {{}}
  */
 function getMountpointData(rootMountpoint, type) {
