@@ -1,5 +1,5 @@
 {
-  "name": "extract-mountpoint",
+  "name": "sta-extract-mountpoint",
   "version": "1.0.0",
   "type": "module",
   "main": "sta-mountpoint.js",

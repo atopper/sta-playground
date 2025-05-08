@@ -36,9 +36,9 @@ async function graphFetch(token, endpoint) {
  * Step through the folder, one by one, skipping the root 'documents' folder and
  * extract information about the folder.  This allows more precise error handling
  * to indicate which segment of the path was not found.
- * @param token
- * @param driveId id for the root document drive
- * @param folderPath
+ * @param {string} token
+ * @param {string} driveId id for the root document drive
+ * @param {string} folderPath
  * @returns {Promise<{driveId: string, folderId: string}>}
  */
 async function getFolderByPath(token, driveId, folderPath) {
