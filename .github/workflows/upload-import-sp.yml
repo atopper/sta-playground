@@ -39,7 +39,6 @@ on:
       preview:
         description: 'Indicate whether the uploaded content should be previewed.'
         required: false
-        default: false
 
 permissions:
   contents: read
@@ -90,7 +89,7 @@ jobs:
           fi
           
           total_steps=5
-          if ${{ env.preview == 'true' }}; then
+          if ${{ github.event.inputs.preview == 'true' }}; then
             total_steps=6
           fi
           echo "total_steps=$total_steps" >> $GITHUB_ENV
@@ -300,13 +299,13 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 6 - Preview
+      - name: Progress 7 - Preview
         if: ${{ github.event.inputs.preview == 'true' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Upload succeeded.  Now previewing the content. (Step 6 of ${{ env.total_steps }})
+          message: Upload succeeded. Now previewing the content. (Step 6 of ${{ env.total_steps }})
           status_type: progress
           agent_name: upload-import-sp
 
@@ -328,13 +327,13 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 6 - Final report
+      - name: Progress 8 - Final report
         if: ${{ github.event.inputs.preview == 'true' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Previewed ${{ steps.preview-content.outputs.preview_successes }} files. Failed to preview ${{ steps.preview-content.outputs.preview_failures }} files. ${{ steps.upload-sharepoint.outputs.upload_successes }} files uploaded successfully. ${{ steps.upload-sharepoint.outputs.upload_failures }} files failed to upload. ${{ env.ACTION_URL }}
+          message: Previewed ${{ steps.preview-content.outputs.preview_successes }} files. Failed to preview ${{ steps.preview-content.outputs.preview_failures }} files. ${{ env.ACTION_URL }}
           status_type: progress
           agent_name: upload-import-sp
 
