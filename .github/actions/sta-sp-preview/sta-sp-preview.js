@@ -94,9 +94,11 @@ export async function run() {
   const { owner, repo, branch = 'main' } = project;
 
   core.info(`${OP_LABEL[operation]}ing content for ${paths.length} urls using ${owner} : ${repo} : ${branch}${forceUpdate ? 'with force' : ''}.`);
+  core.info(`URLs: ${urlsInput}`);
 
   try {
     const endpoint = `${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}/*`;
+    core.info(`Bulk ${OP_LABEL[operation]} endpoint: ${endpoint}`);
     const bulkResp = await fetch(endpoint, {
       method: 'POST',
       body: JSON.stringify({
@@ -108,7 +110,9 @@ export async function run() {
       },
     });
     if (!bulkResp.ok) {
-      throw new Error(`Failed to bulk ${OP_LABEL[operation]} ${paths.length} URLs on ${owner}/${repo}: ${await bulkResp.text()}`);
+      const text = await bulkResp.text();
+      const errorMessage = bulkResp.headers.get('x-Error') || text;
+      throw new Error(`Failed to bulk ${OP_LABEL[operation]} ${paths.length} URLs on ${owner}/${repo}: ${bulkResp.status} ${errorMessage}`);
     }
 
     const { job } = await bulkResp.json();
