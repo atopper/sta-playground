@@ -32,7 +32,7 @@ function removeExtension(path) {
  * (${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}/)
  * @param {string} endpoint
  * @param {string} path
- * @param {string} operation
+ * @param {string} operation 'preview' or 'live'
  * @returns {Promise<*|boolean>}
  */
 async function operateOnPath(endpoint, path, operation = 'preview') {
@@ -49,13 +49,14 @@ async function operateOnPath(endpoint, path, operation = 'preview') {
       // Check for unsupported media type, and try without an extension
       if (resp.status === 415) {
         const noExtPath = removeExtension(path);
+        // Avoid infinite loop by ensuring the path changed.
         if (noExtPath !== path) {
           core.info(`Failed with an "Unsupported Media" error. Retrying operation without an extension: ${noExtPath}`);
           return operateOnPath(endpoint, removeExtension(noExtPath), operation);
         }
         core.warning(`Operation failed on ${path}: ${resp.headers.get('x-error')}`);
       } else if (resp.status === 423) {
-        core.warning(`Operation failed on ${path}. The file seems locked. Is it being edited? (${resp.headers.get('x-error')})`);
+        core.warning(`Operation failed on ${path}. The file appears locked. Is it being edited? (${resp.headers.get('x-error')})`);
       } else {
         core.warning(`Operation failed on ${path}: ${resp.headers.get('x-error')}`);
       }
@@ -63,7 +64,7 @@ async function operateOnPath(endpoint, path, operation = 'preview') {
     }
 
     const data = await resp.json();
-    core.info(`${operation} successful on ${path}: ${data[operation].url}`);
+    core.info(`Operation successful on ${path}: ${data[operation].url}`);
     return true;
   } catch (error) {
     core.warning(`Operation call failed on ${path}: ${error.message}`);
@@ -83,29 +84,29 @@ export async function run() {
   const paths = urlsInput.split(',').map((url) => url.trim());
   const operation = operationInput === 'publish' ? 'live' : operationInput;
 
-  const operationLabel = OP_LABEL[operationInput];
+  const operationLabel = OP_LABEL[operation];
   if (!operationLabel) {
-    core.setOutput('error_message', `Invalid operation: ${operationInput}. Supported operations are preview and publish.`);
+    core.setOutput('error_message', `Invalid operation: ${operationInput}. Supported operations are 'preview' and 'publish'.`);
     return;
   }
 
   const { project } = JSON.parse(context);
   const { owner, repo, branch = 'main' } = project;
-
-  core.info(`${operationLabel}ing content for ${paths.length} urls using ${owner} : ${repo} : ${branch}.`);
-  core.info(`URLs: ${urlsInput}`);
   const operationReport = {
     successes: 0,
     failures: 0,
     failureList: [],
   };
 
+  core.info(`${operationLabel}ing content for ${paths.length} urls using ${owner} : ${repo} : ${branch}.`);
+  core.debug(`URLs: ${urlsInput}`);
+
   try {
     const endpoint = `${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}`;
 
     for (const path of paths) {
-      core.info(`Performing operationLabel operation on path: ${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}${path}`);
-      if (await operateOnPath(endpoint, path)) {
+      core.debug(`Performing operationLabel operation on path: ${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}${path}`);
+      if (await operateOnPath(endpoint, path, operation)) {
         operationReport.successes += 1;
       } else {
         operationReport.failures += 1;
@@ -116,6 +117,9 @@ export async function run() {
     core.setOutput('successes', operationReport.successes);
     core.setOutput('failures', operationReport.failures);
     core.setOutput('failure_list', operationReport.failureList.join(','));
+    if (operationReport.failures > 0) {
+      core.setOutput('error_message', `❌ Error: Failed to ${operationLabel} ${operationReport.failures} of ${paths.length} paths.`);
+    }
   } catch (error) {
     core.warning(`❌ Preview Error: ${error.message}`);
     core.setOutput('error_message', `❌ Error: Failed to ${operationLabel} all of paths.`);
