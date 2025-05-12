@@ -18,6 +18,11 @@ const OP_LABEL = {
   live: 'publish',
 };
 
+/**
+ * Simple function to remove a path's final extension, if it exists.
+ * @param {string} path
+ * @returns {string}
+ */
 function removeExtension(path) {
   const lastSlash = path.lastIndexOf('/');
   const fileName = path.slice(lastSlash + 1);
@@ -28,7 +33,7 @@ function removeExtension(path) {
 }
 
 /**
- * Operate (preview, publish, ...) on one path, relative to the endpoint:
+ * Operate (preview, publish (live), ...) on one path, relative to the endpoint:
  * (${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}/)
  * @param {string} endpoint
  * @param {string} path
@@ -39,7 +44,6 @@ async function operateOnPath(endpoint, path, operation = 'preview') {
   try {
     const resp = await fetch(`${endpoint}${path}`, {
       method: 'POST',
-      body: '{}',
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Expose-Headers': 'x-error, x-error-code',
@@ -51,7 +55,7 @@ async function operateOnPath(endpoint, path, operation = 'preview') {
         const noExtPath = removeExtension(path);
         // Avoid infinite loop by ensuring the path changed.
         if (noExtPath !== path) {
-          core.info(`Failed with an "Unsupported Media" error. Retrying operation without an extension: ${noExtPath}`);
+          core.info(`> Failed with an "Unsupported Media" error. Retrying operation without an extension: ${noExtPath}`);
           return operateOnPath(endpoint, removeExtension(noExtPath), operation);
         }
         core.warning(`Operation failed on ${path}: ${resp.headers.get('x-error')}`);
@@ -98,7 +102,7 @@ export async function run() {
     failureList: [],
   };
 
-  core.info(`${operationLabel}ing content for ${paths.length} urls using ${owner} : ${repo} : ${branch}.`);
+  core.info(`Performing ${operationLabel} for ${paths.length} urls using ${owner} : ${repo} : ${branch}.`);
   core.debug(`URLs: ${urlsInput}`);
 
   try {
@@ -121,7 +125,7 @@ export async function run() {
       core.setOutput('error_message', `❌ Error: Failed to ${operationLabel} ${operationReport.failures} of ${paths.length} paths.`);
     }
   } catch (error) {
-    core.warning(`❌ Preview Error: ${error.message}`);
+    core.warning(`❌ Error: ${error.message}`);
     core.setOutput('error_message', `❌ Error: Failed to ${operationLabel} all of paths.`);
   }
 }
