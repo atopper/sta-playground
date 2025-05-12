@@ -19,30 +19,31 @@ const OP_LABEL = {
 };
 
 /**
- * Preview one path, relative to the endpoint:
+ * Operate (preview, publish, ...) on one path, relative to the endpoint:
  * (${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}/)
  * @param {string} endpoint
  * @param {string} path
  * @returns {Promise<*|boolean>}
  */
-async function previewPath(endpoint, path) {
+async function operateOnPath(endpoint, path) {
   try {
     const resp = await fetch(`${endpoint}${path}`, {
       method: 'POST',
+      body: '{}',
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Expose-Headers': 'x-error, x-error-code',
       },
     });
     if (!resp.ok) {
-      core.warning(`Failed to preview ${path}: ${resp.headers.get('x-error')}`);
+      core.warning(`Operation failed on ${path}: ${resp.headers.get('x-error')}`);
       return false;
     }
 
     const data = await resp.json();
     return data.preview.url;
   } catch (error) {
-    core.warning(`Failed to preview ${path}: ${error.message}`);
+    core.warning(`Operation call failed on ${path}: ${error.message}`);
   }
 
   return false;
@@ -64,7 +65,7 @@ export async function run() {
 
   core.info(`${OP_LABEL[operation]}ing content for ${paths.length} urls using ${owner} : ${repo} : ${branch}.`);
   core.info(`URLs: ${urlsInput}`);
-  const previewReport = {
+  const operationReport = {
     previews: 0,
     failures: 0,
     failureList: [],
@@ -74,18 +75,18 @@ export async function run() {
     const endpoint = `${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}`;
 
     for (const path of paths) {
-      core.info(`Preview ${OP_LABEL[operation]} path: ${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}${path}`);
-      if (await previewPath(endpoint, path)) {
-        previewReport.previews += 1;
+      core.info(`Performing ${OP_LABEL[operation]} operation on path: ${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}${path}`);
+      if (await operateOnPath(endpoint, path)) {
+        operationReport.previews += 1;
       } else {
-        previewReport.failures += 1;
-        previewReport.failureList.push(path);
+        operationReport.failures += 1;
+        operationReport.failureList.push(path);
       }
     }
 
-    core.setOutput('preview_successes', previewReport.previews);
-    core.setOutput('preview_failures', previewReport.failures);
-    core.setOutput('preview_failure_list', previewReport.failureList.join(','));
+    core.setOutput('preview_successes', operationReport.previews);
+    core.setOutput('preview_failures', operationReport.failures);
+    core.setOutput('preview_failure_list', operationReport.failureList.join(','));
   } catch (error) {
     core.warning(`❌ Preview Error: ${error.message}`);
     core.setOutput('error_message', '❌ Error: Failed to preview all of paths.');
