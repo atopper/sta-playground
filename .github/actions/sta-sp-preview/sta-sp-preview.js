@@ -18,6 +18,15 @@ const OP_LABEL = {
   live: 'publish',
 };
 
+function removeExtension(path) {
+  const lastSlash = path.lastIndexOf('/');
+  const fileName = path.slice(lastSlash + 1);
+  const dotIndex = fileName.lastIndexOf('.');
+
+  if (dotIndex === -1) return path; // No extension
+  return path.slice(0, lastSlash + 1) + fileName.slice(0, dotIndex);
+}
+
 /**
  * Operate (preview, publish, ...) on one path, relative to the endpoint:
  * (${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}/)
@@ -26,8 +35,9 @@ const OP_LABEL = {
  * @returns {Promise<*|boolean>}
  */
 async function operateOnPath(endpoint, path) {
+  const pathWithoutExt = removeExtension(path);
   try {
-    const resp = await fetch(`${endpoint}${path}`, {
+    const resp = await fetch(`${endpoint}${pathWithoutExt}`, {
       method: 'POST',
       body: '{}',
       headers: {
