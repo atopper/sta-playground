@@ -44,9 +44,10 @@ async function operateOnPath(endpoint, path, operation = 'preview') {
   try {
     const resp = await fetch(`${endpoint}${path}`, {
       method: 'POST',
+      body: '{}',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Expose-Headers': 'x-error, x-error-code',
+        'Access-Control-Expose-Headers': 'x-error',
       },
     });
     if (!resp.ok) {
@@ -96,12 +97,16 @@ export async function run() {
 
   const { project } = JSON.parse(context);
   const { owner, repo, branch = 'main' } = project;
+  if (!owner || !repo || !branch) {
+    core.setOutput('error_message', 'Invalid context format.');
+    return;
+  }
+
   const operationReport = {
     successes: 0,
     failures: 0,
     failureList: [],
   };
-
   core.info(`Performing ${operationLabel} for ${paths.length} urls using ${owner} : ${repo} : ${branch}.`);
   core.debug(`URLs: ${urlsInput}`);
 
