@@ -31,10 +31,11 @@ async function previewPath(endpoint, path) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Access-Control-Expose-Headers': 'x-error, x-error-code',
       },
     });
     if (!resp.ok) {
-      core.warning(`Failed to preview ${path}: ${await resp.text()}`);
+      core.warning(`Failed to preview ${path}: ${resp.headers.get('x-error')}`);
       return false;
     }
 
@@ -70,17 +71,17 @@ export async function run() {
   };
 
   try {
-    const endpoint = `${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}/`;
+    const endpoint = `${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}`;
 
-    paths.forEach((path) => {
+    for (const path of paths) {
       core.info(`Preview ${OP_LABEL[operation]} path: ${path}`);
-      if (previewPath(endpoint, path)) {
+      if (await previewPath(endpoint, path)) {
         previewReport.previews += 1;
       } else {
         previewReport.failures += 1;
         previewReport.failureList.push(path);
       }
-    });
+    }
 
     core.setOutput('preview_successes', previewReport.previews);
     core.setOutput('preview_failures', previewReport.failures);
