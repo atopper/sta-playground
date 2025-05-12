@@ -74,7 +74,7 @@ export async function run() {
     const endpoint = `${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}`;
 
     for (const path of paths) {
-      core.info(`Preview ${OP_LABEL[operation]} path: ${path}`);
+      core.info(`Preview ${OP_LABEL[operation]} path: ${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}${path}`);
       if (await previewPath(endpoint, path)) {
         previewReport.previews += 1;
       } else {
