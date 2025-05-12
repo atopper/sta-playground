@@ -323,7 +323,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Upload succeeded but the preview of files failed. ${{ env.errorMessage }} ${{ env.ACTION_URL }}
+          message: Upload succeeded but the subsequent action failed. ${{ steps.preview-content.output.error_message }} ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
@@ -333,7 +333,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Previewed ${{ steps.preview-content.outputs.preview_successes }} files. Failed to preview ${{ steps.preview-content.outputs.preview_failures }} files. ${{ env.ACTION_URL }}
+          message: Previewed ${{ steps.preview-content.outputs.preview_successes }} files. ${{ env.ACTION_URL }}
           status_type: progress
           agent_name: upload-import-sp
 
