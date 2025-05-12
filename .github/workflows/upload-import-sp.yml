@@ -334,7 +334,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Previewed ${{ steps.preview-content.outputs.preview_successes }} files. ${{ env.ACTION_URL }}
+          message: Previewed ${{ steps.preview-content.outputs.successes }} files. ${{ env.ACTION_URL }}
           status_type: progress
           agent_name: upload-import-sp
 
@@ -344,7 +344,7 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: SharePoint upload succeeded. Uploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files and previewed ${{ steps.preview-content.outputs.preview_successes }} files.
+          message: SharePoint upload succeeded. Uploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files and previewed ${{ steps.preview-content.outputs.successes }} files.
           status_type: ok
           agent_name: upload-import-sp
 
