@@ -35,9 +35,8 @@ function removeExtension(path) {
  * @returns {Promise<*|boolean>}
  */
 async function operateOnPath(endpoint, path) {
-  const pathWithoutExt = removeExtension(path);
   try {
-    const resp = await fetch(`${endpoint}${pathWithoutExt}`, {
+    const resp = await fetch(`${endpoint}${path}`, {
       method: 'POST',
       body: '{}',
       headers: {
@@ -46,7 +45,17 @@ async function operateOnPath(endpoint, path) {
       },
     });
     if (!resp.ok) {
-      core.warning(`Operation failed on ${path}: ${resp.headers.get('x-error')}`);
+      // Check for unsupported media type, and try without an extension
+      if (resp.status === 415) {
+        core.info('Retrying operation without an extension.');
+        return operateOnPath(endpoint, removeExtension(path));
+      }
+
+      if (resp.status === 423) {
+        core.warning(`Operation failed on ${path}. The file is locked. Is it being edited? (${resp.headers.get('x-error')})`);
+      } else {
+        core.warning(`Operation failed on ${path}: ${resp.headers.get('x-error')}`);
+      }
       return false;
     }
 
@@ -70,13 +79,19 @@ export async function run() {
   const paths = urlsInput.split(',').map((url) => url.trim());
   const operation = operationInput === 'publish' ? 'live' : operationInput;
 
+  const operationLabel = OP_LABEL[operationInput];
+  if (!operationLabel) {
+    core.setOutput('error_message', `Invalid operation: ${operationInput}. Supported operations are preview and publish.`);
+    return;
+  }
+
   const { project } = JSON.parse(context);
   const { owner, repo, branch = 'main' } = project;
 
-  core.info(`${OP_LABEL[operation]}ing content for ${paths.length} urls using ${owner} : ${repo} : ${branch}.`);
+  core.info(`${operationLabel}ing content for ${paths.length} urls using ${owner} : ${repo} : ${branch}.`);
   core.info(`URLs: ${urlsInput}`);
   const operationReport = {
-    previews: 0,
+    successes: 0,
     failures: 0,
     failureList: [],
   };
@@ -85,21 +100,21 @@ export async function run() {
     const endpoint = `${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}`;
 
     for (const path of paths) {
-      core.info(`Performing ${OP_LABEL[operation]} operation on path: ${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}${path}`);
+      core.info(`Performing operationLabel operation on path: ${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}${path}`);
       if (await operateOnPath(endpoint, path)) {
-        operationReport.previews += 1;
+        operationReport.successes += 1;
       } else {
         operationReport.failures += 1;
         operationReport.failureList.push(path);
       }
     }
 
-    core.setOutput('preview_successes', operationReport.previews);
-    core.setOutput('preview_failures', operationReport.failures);
-    core.setOutput('preview_failure_list', operationReport.failureList.join(','));
+    core.setOutput('successes', operationReport.successes);
+    core.setOutput('failures', operationReport.failures);
+    core.setOutput('failure_list', operationReport.failureList.join(','));
   } catch (error) {
     core.warning(`❌ Preview Error: ${error.message}`);
-    core.setOutput('error_message', '❌ Error: Failed to preview all of paths.');
+    core.setOutput('error_message', `❌ Error: Failed to ${operationLabel} all of paths.`);
   }
 }
 
