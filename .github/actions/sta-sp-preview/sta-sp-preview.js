@@ -32,9 +32,10 @@ function removeExtension(path) {
  * (${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}/)
  * @param {string} endpoint
  * @param {string} path
+ * @param {string} operation
  * @returns {Promise<*|boolean>}
  */
-async function operateOnPath(endpoint, path) {
+async function operateOnPath(endpoint, path, operation = 'preview') {
   try {
     const resp = await fetch(`${endpoint}${path}`, {
       method: 'POST',
@@ -47,12 +48,14 @@ async function operateOnPath(endpoint, path) {
     if (!resp.ok) {
       // Check for unsupported media type, and try without an extension
       if (resp.status === 415) {
-        core.info('Retrying operation without an extension.');
-        return operateOnPath(endpoint, removeExtension(path));
-      }
-
-      if (resp.status === 423) {
-        core.warning(`Operation failed on ${path}. The file is locked. Is it being edited? (${resp.headers.get('x-error')})`);
+        const noExtPath = removeExtension(path);
+        if (noExtPath !== path) {
+          core.info(`Failed with an "Unsupported Media" error. Retrying operation without an extension: ${noExtPath}`);
+          return operateOnPath(endpoint, removeExtension(noExtPath), operation);
+        }
+        core.warning(`Operation failed on ${path}: ${resp.headers.get('x-error')}`);
+      } else if (resp.status === 423) {
+        core.warning(`Operation failed on ${path}. The file seems locked. Is it being edited? (${resp.headers.get('x-error')})`);
       } else {
         core.warning(`Operation failed on ${path}: ${resp.headers.get('x-error')}`);
       }
@@ -60,7 +63,8 @@ async function operateOnPath(endpoint, path) {
     }
 
     const data = await resp.json();
-    return data.preview.url;
+    core.info(`${operation} successful on ${path}: ${data[operation].url}`);
+    return true;
   } catch (error) {
     core.warning(`Operation call failed on ${path}: ${error.message}`);
   }
