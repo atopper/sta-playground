@@ -13,68 +13,38 @@
 import core from '@actions/core';
 
 const HLX_ADM_API = 'https://admin.hlx.page';
-let jobStatusPoll;
-let jobStatusFailures = 0;
-const previewReport = {
-  previews: 0,
-  failures: 0,
-};
 const OP_LABEL = {
   preview: 'preview',
   live: 'publish',
 };
 
-async function pollJob({
-  name,
-  operation,
-  owner,
-  repo,
-  branch,
-  resolve,
-  reject,
-}) {
+/**
+ * Preview one path, relative to the endpoint:
+ * (${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}/)
+ * @param {string} endpoint
+ * @param {string} path
+ * @returns {Promise<*|boolean>}
+ */
+async function previewPath(endpoint, path) {
   try {
-    const endpoint = `https://admin.hlx.page/job/${owner}/${repo}/${branch}/${operation}/${name}/details`;
-    const jobResp = await fetch(endpoint);
-    const jobStatus = await jobResp.json();
-    const {
-      state,
-      progress: {
-        total = 0,
-        processed = 0,
-        failed = 0,
-      } = {},
-      startTime,
-      stopTime,
-      data: {
-        resources = [],
-      } = {},
-    } = jobStatus;
-
-    if (state === 'stopped') {
-      // job done, stop polling
-      clearInterval(jobStatusPoll);
-      jobStatusPoll = undefined;
-      // show job summary
-      resources.forEach((res) => core.debug(`${res.path} (${res.status})`));
-      const duration = (new Date(stopTime).valueOf()
-        - new Date(startTime).valueOf()) / 1000;
-      core.info(`Bulk ${OP_LABEL[operation]} completed in ${duration}s, ${processed} urls previewed, out of ${total}.`);
-      previewReport.previews = processed;
-      previewReport.failures = failed;
-
-      resolve();
-    } else {
-      // show job progress
-      core.info(`Bulk ${OP_LABEL[operation]}ed ${processed} urls.`);
+    const resp = await fetch(`${endpoint}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!resp.ok) {
+      core.warning(`Failed to preview ${path}: ${await resp.text()}`);
+      return false;
     }
+
+    const data = await resp.json();
+    return data.preview.url;
   } catch (error) {
-    core.warning(`Failed to get status for job ${name}: ${error}`);
-    jobStatusFailures += 1;
-    if (jobStatusFailures > 6) {
-      reject(new Error(`Failed to get status for job ${name} after 6 attempts. Completion cannot be guaranteed. Please verify yourself.`));
-    }
+    core.warning(`Failed to preview ${path}: ${error.message}`);
   }
+
+  return false;
 }
 
 /**
@@ -84,63 +54,40 @@ async function pollJob({
 export async function run() {
   const context = core.getInput('context');
   const urlsInput = core.getInput('urls');
-  const forceInput = core.getInput('force');
   const operationInput = core.getInput('operation') || 'preview';
   const paths = urlsInput.split(',').map((url) => url.trim());
-  const forceUpdate = forceInput === 'true';
   const operation = operationInput === 'publish' ? 'live' : operationInput;
 
   const { project } = JSON.parse(context);
   const { owner, repo, branch = 'main' } = project;
 
-  core.info(`${OP_LABEL[operation]}ing content for ${paths.length} urls using ${owner} : ${repo} : ${branch}${forceUpdate ? 'with force' : ''}.`);
+  core.info(`${OP_LABEL[operation]}ing content for ${paths.length} urls using ${owner} : ${repo} : ${branch}.`);
   core.info(`URLs: ${urlsInput}`);
+  const previewReport = {
+    previews: 0,
+    failures: 0,
+    failureList: [],
+  };
 
   try {
-    const endpoint = `${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}/*`;
-    core.info(`Bulk ${OP_LABEL[operation]} endpoint: ${endpoint}`);
-    const bulkResp = await fetch(endpoint, {
-      method: 'POST',
-      body: JSON.stringify({
-        paths,
-        forceUpdate,
-      }),
-      headers: {
-        'content-type': 'application/json',
-      },
-    });
-    if (!bulkResp.ok) {
-      const text = await bulkResp.text();
-      const errorMessage = bulkResp.headers.get('x-Error') || text;
-      throw new Error(`Failed to bulk ${OP_LABEL[operation]} ${paths.length} URLs on ${owner}/${repo}: ${bulkResp.status} ${errorMessage}`);
-    }
+    const endpoint = `${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}/`;
 
-    const { job } = await bulkResp.json();
-    const { name } = job;
-    const options = {
-      name,
-      operation,
-      owner,
-      repo,
-      branch,
-    };
-
-    // Create a Promise to wait for job completion, and to poll for its progress.
-    await new Promise((resolve, reject) => {
-      options.resolve = resolve;
-      options.reject = reject;
-      jobStatusPoll = setInterval(async () => pollJob(options), 4000);
+    paths.forEach((path) => {
+      core.info(`Preview ${OP_LABEL[operation]} path: ${path}`);
+      if (previewPath(endpoint, path)) {
+        previewReport.previews += 1;
+      } else {
+        previewReport.failures += 1;
+        previewReport.failureList.push(path);
+      }
     });
 
     core.setOutput('preview_successes', previewReport.previews);
     core.setOutput('preview_failures', previewReport.failures);
+    core.setOutput('preview_failure_list', previewReport.failureList.join(','));
   } catch (error) {
     core.warning(`❌ Preview Error: ${error.message}`);
-    core.setOutput('error_message', '❌ Error: Failed to preview all the content.');
-  } finally {
-    if (jobStatusPoll) {
-      clearInterval(jobStatusPoll);
-    }
+    core.setOutput('error_message', '❌ Error: Failed to preview all of paths.');
   }
 }
 

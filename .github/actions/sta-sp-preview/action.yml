@@ -1,22 +1,20 @@
-name: "Preview the uploaded content"
-description: "Use Helix Admin apis to preview the content just uploaded."
+name: "Preview the SharePoint content"
+description: "Use Helix Admin apis to preview the content."
 author: "Experience Catalyst"
 inputs:
   context:
     description: "The AEMY context"
     required: true
   urls:
-    description: "A comma-separated list of URLs to preview"
+    description: "A comma-separated list of relative URLs to preview - relative from 'ref'"
     required: true
-  force:
-    description: "Whether to force the preview"
-    required: false
-    default: 'false'
 outputs:
   preview_successes:
     description: "The number of preview successes."
   preview_failures:
     description: "The number of preview failures."
+  preview_failure_list:
+    description: "The list of paths that failed to preview."
   error_message:
     description: "Error message if the operation could not be completed"
 runs:
