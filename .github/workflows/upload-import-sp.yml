@@ -316,6 +316,7 @@ jobs:
         with:
           context: ${{ github.event.inputs.aemy_context }}
           urls: ${{ steps.upload-sharepoint.outputs.upload_list }}
+          operation: 'preview'
 
       - name: Report if preview failed
         if: ${{ steps.preview-content.output.error_message != '' }}
@@ -323,11 +324,11 @@ jobs:
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Upload succeeded but the subsequent action failed. ${{ steps.preview-content.output.error_message }} ${{ env.ACTION_URL }}
+          message: Upload succeeded but the preview (partially) failed. ${{ steps.preview-content.output.error_message }} ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 8 - Final report
+      - name: Progress 8 - Preview report
         if: ${{ github.event.inputs.preview == 'true' }}
         uses: ./.github/actions/sta-status
         with:
@@ -337,7 +338,18 @@ jobs:
           status_type: progress
           agent_name: upload-import-sp
 
+      - name: Report upload and preview success
+        if: ${{ github.event.inputs.preview == 'true' }}
+        uses: ./.github/actions/sta-status
+        with:
+          callbacks: ${{ github.event.inputs.aemy_callbacks }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: SharePoint upload succeeded. Uploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files and previewed ${{ steps.preview-content.outputs.preview_successes }} files.
+          status_type: ok
+          agent_name: upload-import-sp
+
       - name: Report upload success
+        if: ${{ github.event.inputs.preview != 'true' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
