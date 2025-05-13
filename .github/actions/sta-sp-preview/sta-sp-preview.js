@@ -64,7 +64,7 @@ async function operateOnPath(endpoint, path, operation = 'preview') {
           core.info(`> Failed with an "Unsupported Media" or 404 error. Retrying operation without an extension: ${noExtPath}`);
           return operateOnPath(endpoint, noExtPath, operation);
         }
-        core.warning(`.Operation stilled failed on extensionless ${path}: ${xError}`);
+        core.warning(`.Operation failed on extensionless ${path}: ${xError}`);
       } else if (resp.status === 423) {
         core.warning(`.Operation failed on ${path}. The file appears locked. Is it being edited? (${xError})`);
       } else {
