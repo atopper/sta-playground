@@ -148,7 +148,7 @@ export async function run() {
     if (operationReport.failures > 0) {
       core.warning(`❌ The paths that failed are: ${JSON.stringify(operationReport.failureList, undefined, 2)}`);
       core.setOutput('error_message', `❌ Error: Failed to ${OP_LABEL[operationInput]} ${operationReport.failures} of ${paths.length} paths.`);
-    } else if (paths.length !== operationReport.successes) {
+    } else if (operations.length * paths.length !== operationReport.successes) {
       core.warning(`❌ The paths that failed are: ${JSON.stringify(operationReport.failureList, undefined, 2)}`);
       core.setOutput('error_message', `❌ Error: Failed to ${OP_LABEL[operationInput]} all the paths.`);
     }
