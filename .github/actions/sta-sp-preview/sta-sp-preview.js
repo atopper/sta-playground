@@ -61,23 +61,23 @@ async function operateOnPath(endpoint, path, operation = 'preview') {
         const noExtPath = removeExtension(path);
         // Avoid infinite loop by ensuring the path changed.
         if (noExtPath !== path) {
-          core.info(`U+2754 Failed with an "Unsupported Media" or 404 error. Retrying operation without an extension: ${noExtPath}`);
+          core.info(`❓ Failed with an "Unsupported Media" or 404 error. Retrying operation without an extension: ${noExtPath}`);
           return operateOnPath(endpoint, noExtPath, operation);
         }
-        core.warning(`&#x2715; Operation failed on extensionless ${path}: ${xError}`);
+        core.warning(`❌ Operation failed on extensionless ${path}: ${xError}`);
       } else if (resp.status === 423) {
-        core.warning(`&#x2715; Operation failed on ${path}. The file appears locked. Is it being edited? (${xError})`);
+        core.warning(`❌ Operation failed on ${path}. The file appears locked. Is it being edited? (${xError})`);
       } else {
-        core.warning(`&#x2715; Operation failed on ${path}: ${xError}`);
+        core.warning(`❌ Operation failed on ${path}: ${xError}`);
       }
       return false;
     }
 
     const data = await resp.json();
-    core.info(`U+2713 Operation successful on ${path}: ${data[operation].url}`);
+    core.info(`✓ Operation successful on ${path}: ${data[operation].url}`);
     return true;
   } catch (error) {
-    core.warning(`&#x2715; Operation call failed on ${path}: ${error.message}`);
+    core.warning(`❌ Operation call failed on ${path}: ${error.message}`);
   }
 
   return false;
