@@ -61,23 +61,23 @@ async function operateOnPath(endpoint, path, operation = 'preview') {
         const noExtPath = removeExtension(path);
         // Avoid infinite loop by ensuring the path changed.
         if (noExtPath !== path) {
-          core.info(`> Failed with an "Unsupported Media" or 404 error. Retrying operation without an extension: ${noExtPath}`);
+          core.info(`U+2754 Failed with an "Unsupported Media" or 404 error. Retrying operation without an extension: ${noExtPath}`);
           return operateOnPath(endpoint, noExtPath, operation);
         }
-        core.warning(`.Operation failed on extensionless ${path}: ${xError}`);
+        core.warning(`&#x2715; Operation failed on extensionless ${path}: ${xError}`);
       } else if (resp.status === 423) {
-        core.warning(`.Operation failed on ${path}. The file appears locked. Is it being edited? (${xError})`);
+        core.warning(`&#x2715; Operation failed on ${path}. The file appears locked. Is it being edited? (${xError})`);
       } else {
-        core.warning(`.Operation failed on ${path}: ${xError}`);
+        core.warning(`&#x2715; Operation failed on ${path}: ${xError}`);
       }
       return false;
     }
 
     const data = await resp.json();
-    core.info(`.Operation successful on ${path}: ${data[operation].url}`);
+    core.info(`U+2713 Operation successful on ${path}: ${data[operation].url}`);
     return true;
   } catch (error) {
-    core.warning(`.Operation call failed on ${path}: ${error.message}`);
+    core.warning(`&#x2715; Operation call failed on ${path}: ${error.message}`);
   }
 
   return false;
@@ -93,6 +93,8 @@ export async function run() {
   const operationInput = core.getInput('operation') || 'preview';
   const paths = urlsInput.split(',').map((url) => url.trim());
   const operations = [];
+
+  // Set up the operations, as found in the operation url (i.e. preview and/or live).
   if (operationInput === 'preview' || operationInput === 'both') {
     operations.push('preview');
   }
@@ -124,32 +126,35 @@ export async function run() {
 
   try {
     for (const operation of operations) {
-      core.info(`Performing ${OP_LABEL[operation]} for ${paths.length} urls using ${owner} : ${repo} : ${branch}.`);
+      const operationLabel = OP_LABEL[operation];
+      core.info(`Performing ${operationLabel} for ${paths.length} urls using ${owner} : ${repo} : ${branch}.`);
+
       const endpoint = `${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}`;
 
       for (const path of paths) {
-        core.debug(`.Performing ${OP_LABEL[operation]} operation on path: ${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}${path}`);
+        core.debug(`.Performing ${operationLabel} operation on path: ${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}${path}`);
         const successfullyUploaded = await operateOnPath(endpoint, path, operation);
         if (successfullyUploaded) {
           operationReport.successes += 1;
         } else {
           operationReport.failures += 1;
-          operationReport.failureList[OP_LABEL[operation]].push(path);
+          operationReport.failureList[operationLabel].push(path);
         }
       }
     }
 
     core.setOutput('successes', operationReport.successes);
     core.setOutput('failures', operationReport.failures);
-    core.setOutput('failure_list', JSON.stringify(operationReport.failureList, undefined, 2));
     if (operationReport.failures > 0) {
+      core.warning(`❌ The paths that failed are: ${JSON.stringify(operationReport.failureList, undefined, 2)}`);
       core.setOutput('error_message', `❌ Error: Failed to ${OP_LABEL[operationInput]} ${operationReport.failures} of ${paths.length} paths.`);
     } else if (paths.length !== operationReport.successes) {
-      core.setOutput('error_message', `❌ Error: Failed to ${OP_LABEL[operationInput]}.  Not all paths were previewed.`);
+      core.warning(`❌ The paths that failed are: ${JSON.stringify(operationReport.failureList, undefined, 2)}`);
+      core.setOutput('error_message', `❌ Error: Failed to ${OP_LABEL[operationInput]} all the paths.`);
     }
   } catch (error) {
     core.warning(`❌ Error: ${error.message}`);
-    core.setOutput('error_message', `❌ Error: Failed to ${OP_LABEL[operationInput]} all of paths.`);
+    core.setOutput('error_message', `❌ Error: Failed to ${OP_LABEL[operationInput]} all of the paths.`);
   }
 }
 
