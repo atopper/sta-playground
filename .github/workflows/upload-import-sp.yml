@@ -98,7 +98,7 @@ jobs:
             preview_operation='preview'
           fi
           if ${{ github.event.inputs.previewAndPublish == 'true' }}; then
-            total_steps=8
+            total_steps=6
             preview_operation='preview and publish'
           fi
           echo "total_steps=$total_steps" >> $GITHUB_ENV
@@ -268,7 +268,7 @@ jobs:
           status_type: progress
           agent_name: upload-import-sp
 
-      - name: Run SharePoint upload action
+      - name: Upload to SharePoint
         id: upload-sharepoint
         uses: ./.github/actions/sta-upload-sharepoint
         with:
@@ -338,33 +338,23 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 8 - Preview report
+      - name: Report Upload and Preview/Publish success
         if: ${{ env.preview_operation != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: ${{ env.preview_operation }} succeeded on ${{ steps.preview-publish-content.outputs.successes }} files.
-          status_type: progress
-          agent_name: upload-import-sp
-
-      - name: Report preview success
-        if: ${{ github.event.inputs.previewAndPublish == 'true' }}
-        uses: ./.github/actions/sta-status
-        with:
-          callbacks: ${{ github.event.inputs.aemy_callbacks }}
-          context: ${{ github.event.inputs.aemy_context }}
-          message: SharePoint upload succeeded. Uploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files and ${{ steps.preview-publish-content.outputs.successes }} files were ${{ env.preview_operation }}.
+          message: SharePoint upload of ${{ steps.upload-sharepoint.outputs.upload_successes }} files succeeded and ${{ env.preview_operation }} succeeded ${{ steps.preview-publish-content.outputs.successes }} times in total.
           status_type: ok
           agent_name: upload-import-sp
 
       - name: Report upload success
-        if: ${{ github.event.inputs.preview != 'true' }}
+        if: ${{ env.preview_operation == '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: SharePoint upload succeeded. Uploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files.
+          message: SharePoint upload of ${{ steps.upload-sharepoint.outputs.upload_successes }} files succeeded.
           status_type: ok
           agent_name: upload-import-sp
 
