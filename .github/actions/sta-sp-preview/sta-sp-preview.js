@@ -54,8 +54,9 @@ async function operateOnPath(endpoint, path, operation = 'preview') {
     });
     if (!resp.ok) {
       const xError = resp.headers.get('x-error');
-      core.warning(`.${operation} operation failed on ${path}: ${resp.status} : ${resp.statusText} : ${xError}`);
-      // Check for unsupported media type, and try without an extension
+      core.debug(`.${operation} operation failed on ${path}: ${resp.status} : ${resp.statusText} : ${xError}`);
+
+      // Check for unsupported media type or 404, and try without an extension
       if (resp.status === 415 || (operation === 'live' && resp.status === 404)) {
         const noExtPath = removeExtension(path);
         // Avoid infinite loop by ensuring the path changed.
@@ -63,7 +64,7 @@ async function operateOnPath(endpoint, path, operation = 'preview') {
           core.info(`> Failed with an "Unsupported Media" or 404 error. Retrying operation without an extension: ${noExtPath}`);
           return operateOnPath(endpoint, noExtPath, operation);
         }
-        core.warning(`.Operation failed on ${path}: ${xError}`);
+        core.warning(`.Operation stilled failed on extensionless ${path}: ${xError}`);
       } else if (resp.status === 423) {
         core.warning(`.Operation failed on ${path}. The file appears locked. Is it being edited? (${xError})`);
       } else {
