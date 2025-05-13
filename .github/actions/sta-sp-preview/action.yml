@@ -1,5 +1,5 @@
-name: "Preview the SharePoint content"
-description: "Use Helix Admin apis to preview the content."
+name: "Preview or Publish the SharePoint content"
+description: "Use Helix Admin apis to preview or publish the content."
 author: "Experience Catalyst"
 inputs:
   context:
@@ -8,13 +8,17 @@ inputs:
   urls:
     description: "A comma-separated list of relative URLs to preview - relative from 'ref'"
     required: true
+  operation:
+    description: "The operation to perform - preview or publish or both"
+    required: false
+    default: 'preview'
 outputs:
-  preview_successes:
-    description: "The number of preview successes."
-  preview_failures:
-    description: "The number of preview failures."
-  preview_failure_list:
-    description: "The list of paths that failed to preview."
+  successes:
+    description: "The number of successes."
+  failures:
+    description: "The number of failures."
+  failure_list:
+    description: "The list of paths that failed."
   error_message:
     description: "Error message if the operation could not be completed"
 runs:
