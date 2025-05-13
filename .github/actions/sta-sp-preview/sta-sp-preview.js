@@ -54,6 +54,7 @@ async function operateOnPath(endpoint, path, operation = 'preview') {
     });
     if (!resp.ok) {
       const xError = resp.headers.get('x-error');
+      core.warning(`.${operation} operation failed on ${path}: ${resp.status} : ${resp.statusText} : ${xError}`);
       // Check for unsupported media type, and try without an extension
       if (resp.status === 415 || (operation === 'publish' && xError.includes('source does not exist'))) {
         const noExtPath = removeExtension(path);
