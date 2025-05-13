@@ -35,7 +35,7 @@ function removeExtension(path) {
 }
 
 /**
- * Operate (preview, publish (live), ...) on one path, relative to the
+ * Operate (preview or live) on one path, relative to the
  * endpoint (i.e. ${HLX_ADM_API}/${operation}/${owner}/${repo}/${branch}/)
  * @param {string} endpoint
  * @param {string} path
@@ -56,7 +56,7 @@ async function operateOnPath(endpoint, path, operation = 'preview') {
       const xError = resp.headers.get('x-error');
       core.warning(`.${operation} operation failed on ${path}: ${resp.status} : ${resp.statusText} : ${xError}`);
       // Check for unsupported media type, and try without an extension
-      if (resp.status === 415 || (operation === 'publish' && xError.includes('source does not exist'))) {
+      if (resp.status === 415 || (operation === 'live' && resp.status === 404)) {
         const noExtPath = removeExtension(path);
         // Avoid infinite loop by ensuring the path changed.
         if (noExtPath !== path) {
