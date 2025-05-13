@@ -39,6 +39,9 @@ on:
       preview:
         description: 'Indicate whether the uploaded content should be previewed.'
         required: false
+      previewAndPublish:
+        description: 'Indicate whether the uploaded content should be previewed and published.'
+        required: false
 
 permissions:
   contents: read
@@ -88,11 +91,18 @@ jobs:
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
           
-          total_steps=5
+          total_steps=5        
+          preview_operation=''
           if ${{ github.event.inputs.preview == 'true' }}; then
             total_steps=6
+            preview_operation='preview'
+          fi
+          if ${{ github.event.inputs.previewAndPublish == 'true' }}; then
+            total_steps=8
+            preview_operation='preview and publish'
           fi
           echo "total_steps=$total_steps" >> $GITHUB_ENV
+          echo "preview_operation=$preview_operation" >> $GITHUB_ENV
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -299,52 +309,52 @@ jobs:
           status_type: error
           agent_name: upload-import-sp
 
-      - name: Progress 7 - Preview
-        if: ${{ github.event.inputs.preview == 'true' }}
+      - name: Progress 7 - Preview Publish
+        if: ${{ env.preview_operation != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Upload succeeded. Now previewing the content. (Step 6 of ${{ env.total_steps }})
+          message: Upload succeeded. Now performing ${{ env.preview_operation }} on the uploaded content... (Step 6 of ${{ env.total_steps }})
           status_type: progress
           agent_name: upload-import-sp
 
-      - name: Preview uploaded content
-        id: preview-content
-        if: ${{ github.event.inputs.preview == 'true' }}
+      - name: Preview/Publish uploaded content
+        id: preview-publish-content
+        if: ${{ env.preview_operation != '' }}
         uses: ./.github/actions/sta-sp-preview
         with:
           context: ${{ github.event.inputs.aemy_context }}
           urls: ${{ steps.upload-sharepoint.outputs.upload_list }}
-          operation: 'preview'
+          operation: ${{ github.event.inputs.previewAndPublish == 'true' && 'both' || 'preview' }}
 
       - name: Report if preview failed
-        if: ${{ steps.preview-content.output.error_message != '' }}
+        if: ${{ steps.preview-publish-content.output.error_message != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Upload succeeded but the preview (partially) failed. ${{ steps.preview-content.output.error_message }} ${{ env.ACTION_URL }}
+          message: Upload succeeded but the ${{ env.preview_operation }} had failures. ${{ steps.preview-publish-content.output.error_message }} ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
       - name: Progress 8 - Preview report
-        if: ${{ github.event.inputs.preview == 'true' }}
+        if: ${{ env.preview_operation != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Previewed ${{ steps.preview-content.outputs.successes }} files. ${{ env.ACTION_URL }}
+          message: ${{ env.preview_operation }} succeeded on ${{ steps.preview-publish-content.outputs.successes }} files.
           status_type: progress
           agent_name: upload-import-sp
 
-      - name: Report upload and preview success
-        if: ${{ github.event.inputs.preview == 'true' }}
+      - name: Report preview success
+        if: ${{ github.event.inputs.previewAndPublish == 'true' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: SharePoint upload succeeded. Uploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files and previewed ${{ steps.preview-content.outputs.successes }} files.
+          message: SharePoint upload succeeded. Uploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files and ${{ steps.preview-publish-content.outputs.successes }} files were ${{ env.preview_operation }}.
           status_type: ok
           agent_name: upload-import-sp
 
