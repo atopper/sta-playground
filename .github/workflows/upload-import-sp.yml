@@ -2,8 +2,13 @@ name: STA-AEMY - Upload to SharePoint
 
 description: |
   Uploads the import zip file to SharePoint. The zip file is downloaded from a URL and extracted. The contents are uploaded to SharePoint.
-  The upload is done using the SharePoint Upload Action.
+  The caller can also specify whether to preview or preview & publish the uploaded content.
   The action is triggered by a workflow dispatch event with inputs as follows.
+  The general flow is to, after checking inputs and setting up environments,:
+  - Announce the progress (done this, about to do that)
+  - Do that
+  - Report failures by checking error variables
+  - Repeat until complete
 
 env:
   AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
@@ -66,6 +71,7 @@ jobs:
           # Required parameters
           missing_vars=""
           bad_format=""
+          errorMessage=""
       
           if [ -z "${{ env.AZURE_TENANT_ID }}" ]; then
             missing_vars+="JS_LF- AZURE_TENANT_ID "
@@ -249,7 +255,7 @@ jobs:
           sp_site_path: ${{ fromJSON(steps.mountpoint_data.outputs.data).site }}
           sp_folder_path: ${{ fromJSON(steps.mountpoint_data.outputs.data).path }}
 
-      - name: Report if Drive id failed
+      - name: Report if Folder id failed
         if: ${{ steps.get-drive-info.outputs.folder_id == '' }}
         uses: ./.github/actions/sta-status
         with:
@@ -276,7 +282,7 @@ jobs:
           drive_id: ${{ steps.get-drive-info.outputs.drive_id }}
           folder_id: ${{ steps.get-drive-info.outputs.folder_id }}
           zip_dir: ${{ steps.download-zip.outputs.temp_dir }}
-          delay: 2000
+          delay: '2000'
 
       - name: Analyze upload results
         run: |
@@ -290,7 +296,7 @@ jobs:
             echo "errorMessage=$message" >> $GITHUB_ENV
           fi
 
-      - name: Progress 6 - Done upload
+      - name: Progress 6 - Done upload so show full results
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
@@ -329,12 +335,12 @@ jobs:
           operation: ${{ github.event.inputs.previewAndPublish == 'true' && 'both' || 'preview' }}
 
       - name: Report if preview failed
-        if: ${{ steps.preview-publish-content.output.error_message != '' }}
+        if: ${{ steps.preview-publish-content.outputs.error_message != '' }}
         uses: ./.github/actions/sta-status
         with:
           callbacks: ${{ github.event.inputs.aemy_callbacks }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: Upload succeeded but the ${{ env.preview_operation }} had failures. ${{ steps.preview-publish-content.output.error_message }} ${{ env.ACTION_URL }}
+          message: Upload succeeded but the ${{ env.preview_operation }} had failures. ${{ steps.preview-publish-content.outputs.error_message }} ${{ env.ACTION_URL }}
           status_type: error
           agent_name: upload-import-sp
 
