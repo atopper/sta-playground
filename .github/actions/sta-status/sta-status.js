@@ -71,7 +71,7 @@ export async function run() {
     return;
   }
 
-  const apiKey = process.env.AEMY_API_KEY;
+  const apiKey = process.env.CALLBACK_API_KEY;
 
   try {
     const coordinatorCallbacks = JSON.parse(callbacks);
