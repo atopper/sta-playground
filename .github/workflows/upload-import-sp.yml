@@ -20,6 +20,8 @@ env:
   AZURE_PRIVATE_KEY_BASE64: ${{ secrets.AZURE_PRIVATE_KEY_BASE64 }}
   # Encrypted cert key password
   AZURE_PFX_PASSWORD: ${{ secrets.AZURE_PFX_PASSWORD }}
+  # Coordinator status api key (set for the sta-status action)
+  CALLBACK_APIKEY: ${{ secrets.CALLBACK_APIKEY }}
 on:
   workflow_dispatch:
     inputs:
@@ -29,9 +31,8 @@ on:
         required: true
         type: password
       aemy_callbacks:
-        description: 'The AEMY context as a string.'
+        description: 'The AEMY status callback object, without the apikey.'
         required: true
-        type: password
       aemy_context:
         description: 'The AEMY context as a string.'
         required: true
@@ -81,6 +82,9 @@ jobs:
           fi
           if [ -z "${{ env.AZURE_THUMBPRINT }}" ]; then
             missing_vars+="JS_LF- AZURE_THUMBPRINT "
+          fi
+          if [ -z "${{ env.CALLBACK_APIKEY }}" ]; then
+            missing_vars+="JS_LF- CALLBACK_APIKEY "
           fi
           if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
             missing_vars+="JS_LF- AZURE_PRIVATE_KEY_BASE64 "
