@@ -3,7 +3,7 @@ description: "Post a status message for a job."
 author: "Experience Catalyst"
 inputs:
   callbacks:
-    description: "The callbacks to use to post the status"
+    description: "The callbacks (without the apikey) to use to post the status"
     required: true
   context:
     description: "Context for the STA workflow"
