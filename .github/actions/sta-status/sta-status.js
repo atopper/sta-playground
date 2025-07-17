@@ -71,6 +71,8 @@ export async function run() {
     return;
   }
 
+  const apiKey = process.env.AEMY_APIKEY;
+
   try {
     const coordinatorCallbacks = JSON.parse(callbacks);
     if (!context || !callbacks || !message || !statusType || !coordinatorCallbacks?.apiKey) {
@@ -81,7 +83,7 @@ export async function run() {
     const url = coordinatorCallbacks[statusType];
     const { body, headers } = getStatusCallParameters(
       JSON.parse(context),
-      coordinatorCallbacks.apiKey,
+      apiKey,
       statusType,
       message,
     );
