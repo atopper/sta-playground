@@ -71,11 +71,11 @@ export async function run() {
     return;
   }
 
-  const apiKey = process.env.AEMY_APIKEY;
+  const apiKey = process.env.AEMY_API_KEY;
 
   try {
     const coordinatorCallbacks = JSON.parse(callbacks);
-    if (!context || !callbacks || !message || !statusType || !coordinatorCallbacks?.apiKey) {
+    if (!context || !callbacks || !message || !statusType || !apiKey) {
       core.info(`Missing or misconfigured parameters in ${name} call. Skipping status call: "${message}".`);
       return;
     }
