@@ -21,7 +21,7 @@ env:
   # Encrypted cert key password
   AZURE_PFX_PASSWORD: ${{ secrets.AZURE_PFX_PASSWORD }}
   # Coordinator status api key (set for the sta-status action)
-  CALLBACK_APIKEY: ${{ secrets.CALLBACK_APIKEY }}
+  CALLBACK_API_KEY: ${{ secrets.CALLBACK_API_KEY }}
 on:
   workflow_dispatch:
     inputs:
@@ -83,8 +83,8 @@ jobs:
           if [ -z "${{ env.AZURE_THUMBPRINT }}" ]; then
             missing_vars+="JS_LF- AZURE_THUMBPRINT "
           fi
-          if [ -z "${{ env.CALLBACK_APIKEY }}" ]; then
-            missing_vars+="JS_LF- CALLBACK_APIKEY "
+          if [ -z "${{ env.CALLBACK_API_KEY }}" ]; then
+            missing_vars+="JS_LF- CALLBACK_API_KEY "
           fi
           if [ -z "${{ env.AZURE_PRIVATE_KEY_BASE64 }}" ]; then
             missing_vars+="JS_LF- AZURE_PRIVATE_KEY_BASE64 "
