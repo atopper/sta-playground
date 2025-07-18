@@ -56,6 +56,10 @@ async function graphFetch(token, endpoint, initOptions) {
   );
 
   if (!res.ok) {
+    // Count locked files if the response status is 423.
+    if (res.status === 423) {
+      uploadReport.lockedFiles += 1;
+    }
     const errorText = await res.text();
     throw new Error(`Graph API error ${res.status}: ${errorText}`);
   }
@@ -70,7 +74,7 @@ async function graphFetch(token, endpoint, initOptions) {
  * @param {string} folderId Destination folder id within the drive id root
  * @param {Object.<string, string, string>} file The file name, full local and relative
  *                                               target path of the file to be uploaded.
- * @returns {Promise<'success'|'failed'|'locked'>} The result of the upload operation.
+ * @returns {Promise<boolean>} The result of the upload operation.
  */
 async function uploadFile(accessToken, driveId, folderId, file) {
   const fileStream = fs.createReadStream(file.path);
@@ -95,15 +99,12 @@ async function uploadFile(accessToken, driveId, folderId, file) {
     );
 
     core.debug(`File ${file.path} uploaded successfully.`);
-    return 'success';
+    return true;
   } catch (error) {
     core.warning(`Failed to upload file ${file.path}: ${error.message}`);
-    if (error.message.toLowerCase().includes('is locked') && error.message.includes('423')) {
-      return 'locked';
-    }
   }
 
-  return 'failed';
+  return false;
 }
 
 /**
@@ -237,15 +238,12 @@ async function populateSourceStructure(srcFolder) {
 async function uploadFiles(accessToken, driveId, folderId, sourceFiles, delay) {
   for (const item of sourceFiles) {
     const result = await uploadFile(accessToken, driveId, folderId, item);
-    if (result === 'success') {
+    if (result) {
       uploadReport.uploads += 1;
       uploadReport.uploadList.push(item.relative);
     } else {
       uploadReport.failures += 1;
       uploadReport.failedList.push(item.path);
-      if (result === 'locked') {
-        uploadReport.lockedFiles += 1;
-      }
     }
 
     await sleep(delay);
