@@ -6,7 +6,7 @@ inputs:
     description: "The callbacks URLs to use to post the status"
     required: true
   context:
-    description: "Context for the STA workflow"
+    description: "Context for the AEMY workflow"
     required: true
   message:
     description: "The message to post"
