@@ -25,6 +25,7 @@ const uploadReport = {
   failures: 0,
   failedList: [],
   failedFolderCreations: 0,
+  lockedFiles: 0,
 };
 
 // Source structure for this invocation.  Global to simplify recursion.
@@ -56,7 +57,6 @@ async function graphFetch(token, endpoint, initOptions) {
 
   if (!res.ok) {
     const errorText = await res.text();
-    core.warning(`Graph API error ${res.status}: ${errorText}`);
     throw new Error(`Graph API error ${res.status}: ${errorText}`);
   }
 
@@ -70,7 +70,7 @@ async function graphFetch(token, endpoint, initOptions) {
  * @param {string} folderId Destination folder id within the drive id root
  * @param {Object.<string, string, string>} file The file name, full local and relative
  *                                               target path of the file to be uploaded.
- * @returns {Promise<boolean>}
+ * @returns {Promise<'success'|'failed'|'locked'>} The result of the upload operation.
  */
 async function uploadFile(accessToken, driveId, folderId, file) {
   const fileStream = fs.createReadStream(file.path);
@@ -79,7 +79,7 @@ async function uploadFile(accessToken, driveId, folderId, file) {
   core.debug(`Uploading ${file.path} with mime type ${mimeType}`);
 
   try {
-    const response = await graphFetch(
+    await graphFetch(
       accessToken,
       `/drives/${driveId}/items/${folderId}:${file.relative}:/content`,
       {
@@ -95,13 +95,15 @@ async function uploadFile(accessToken, driveId, folderId, file) {
     );
 
     core.debug(`File ${file.path} uploaded successfully.`);
-
-    return !!response;
+    return 'success';
   } catch (error) {
     core.warning(`Failed to upload file ${file.path}: ${error.message}`);
+    if (error.message.toLowerCase().includes('is locked') && error.message.includes('423')) {
+      return 'locked';
+    }
   }
 
-  return false;
+  return 'failed';
 }
 
 /**
@@ -234,13 +236,16 @@ async function populateSourceStructure(srcFolder) {
  */
 async function uploadFiles(accessToken, driveId, folderId, sourceFiles, delay) {
   for (const item of sourceFiles) {
-    const success = await uploadFile(accessToken, driveId, folderId, item);
-    if (success) {
+    const result = await uploadFile(accessToken, driveId, folderId, item);
+    if (result === 'success') {
       uploadReport.uploads += 1;
       uploadReport.uploadList.push(item.relative);
     } else {
       uploadReport.failures += 1;
       uploadReport.failedList.push(item.path);
+      if (result === 'locked') {
+        uploadReport.lockedFiles += 1;
+      }
     }
 
     await sleep(delay);
@@ -298,6 +303,7 @@ export async function run() {
     core.setOutput('upload_list', String(uploadReport.uploadList.join(', ')));
     core.setOutput('upload_failures', String(uploadReport.failures));
     core.setOutput('upload_failed_list', uploadReport.failedList.join(', '));
+    core.setOutput('upload_failed_locked', uploadReport.lockedFiles);
     if (uploadReport.failures > 0 || uploadReport.failedList.length > 0) {
       core.setOutput('error_message', '❌ Upload Error: Some uploads failed. Check the workflow for more details.');
     }
