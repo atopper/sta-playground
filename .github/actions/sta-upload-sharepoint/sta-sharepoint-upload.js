@@ -237,8 +237,8 @@ async function populateSourceStructure(srcFolder) {
  */
 async function uploadFiles(accessToken, driveId, folderId, sourceFiles, delay) {
   for (const item of sourceFiles) {
-    const result = await uploadFile(accessToken, driveId, folderId, item);
-    if (result) {
+    const success = await uploadFile(accessToken, driveId, folderId, item);
+    if (success) {
       uploadReport.uploads += 1;
       uploadReport.uploadList.push(item.relative);
     } else {
@@ -258,10 +258,10 @@ export async function run() {
   const accessToken = core.getInput('access_token');
   const driveId = core.getInput('drive_id'); // Shared Documents
   const folderId = core.getInput('folder_id'); // sites/esaas-demos/andrew-top
-  const zipDir = core.getInput('zip_dir');
+  const zipContentsPath = core.getInput('zip_contents_path');
   const delayInput = core.getInput('delay');
   const delay = parseInt(delayInput, 10);
-  const docsDir = `${zipDir}/contents/docx`;
+  const docsDir = `${zipContentsPath}/docx`;
 
   core.info(`Upload files from ${docsDir} with a delay of ${delay} milliseconds between uploads.`);
 
@@ -301,7 +301,7 @@ export async function run() {
     core.setOutput('upload_list', String(uploadReport.uploadList.join(', ')));
     core.setOutput('upload_failures', String(uploadReport.failures));
     core.setOutput('upload_failed_list', uploadReport.failedList.join(', '));
-    core.setOutput('upload_failed_locked', uploadReport.lockedFiles);
+    core.setOutput('upload_failed_locked', String(uploadReport.lockedFiles));
     if (uploadReport.failures > 0 || uploadReport.failedList.length > 0) {
       core.setOutput('error_message', '❌ Upload Error: Some uploads failed. Check the workflow for more details.');
     }
