@@ -46,7 +46,7 @@ function createTempDirectory() {
 async function fetchZip(downloadUrl, zipDestination) {
   const response = await fetch(downloadUrl);
   if (!response.ok) {
-    throw new Error(`Failed to download zip. Did the url expire? ${response.status} ${response.statusText}`);
+    throw new Error(`Failed to download zip. Check if the url expired and try again. Contact support if the problem persists. ${response.status} ${response.statusText}`);
   }
 
   try {
@@ -79,10 +79,6 @@ async function extractZip(zipPath, contentsDir) {
     let nextProgress = 20;
     for (const entry of directory.files) {
       const fullPath = path.join(contentsDir, entry.path);
-      if (extractedFiles < 3 && entry.path.toLowerCase().endsWith('.zip')) {
-        core.setOutput('xwalk_zip', entry.path);
-      }
-
       if (entry.type === 'Directory') {
         fs.mkdirSync(fullPath, { recursive: true });
       } else {
@@ -134,6 +130,7 @@ export async function run() {
     const fileCount = await extractZip(zipDestination, contentsDir);
 
     core.setOutput('temp_dir', tempDir);
+    core.setOutput('zip_contents_path', contentsDir);
     core.setOutput('file_count', fileCount);
   } catch (error) {
     core.warning(`❌ Error: ${error.message}`);
