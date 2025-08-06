@@ -288,6 +288,16 @@ jobs:
           zip_contents_path: ${{ steps.download-zip.outputs.zip_contents_path }}
           delay: '2000'
 
+      - name: '[Check] Upload to SharePoint (execution errors)'
+        if: ${{ steps.upload-sharepoint.outputs.error_message != '' }}
+        uses: ./.github/actions/sta-status
+        with:
+          callback_urls: ${{ github.event.inputs.aemy_callback_urls }}
+          context: ${{ github.event.inputs.aemy_context }}
+          message: Upload Failed. ${{ steps.upload-sharepoint.outputs.error_message }} ${{ env.ACTION_URL }}
+          status_type: error
+          agent_name: upload-import-sp
+
       - name: '[Report] SharePoint Upload results'
         run: |
           echo "Successes: ${{ steps.upload-sharepoint.outputs.upload_successes }}"
@@ -309,7 +319,7 @@ jobs:
         with:
           callback_urls: ${{ github.event.inputs.aemy_callback_urls }}
           context: ${{ github.event.inputs.aemy_context }}
-          message: "✅ Success count: ${{ steps.upload-sharepoint.outputs.upload_successes }}JS_LF❌ Failed count: ${{ steps.upload-sharepoint.outputs.upload_failures }}JS_LF🚨 Failed files: ${{ steps.upload-sharepoint.outputs.upload_failed_list }}" ${{ env.ACTION_URL }}"
+          message: "✅ Success count: ${{ steps.upload-sharepoint.outputs.upload_successes }}JS_LF❌ Failed count: ${{ steps.upload-sharepoint.outputs.upload_failures }}JS_LF🚨 Failed files: ${{ steps.upload-sharepoint.outputs.upload_failed_list }} ${{ env.ACTION_URL }}"
           status_type: progress
           agent_name: upload-import-sp
 
