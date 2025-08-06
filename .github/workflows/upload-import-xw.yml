@@ -132,7 +132,7 @@ jobs:
         id: aem-content-paths
         uses: ./.github/actions/sta-xwalk-operations
         with:
-          operation: content-package
+          operation: get-page-paths
           zip_contents_path: ${{ steps.download-zip.outputs.zip_contents_path }}
 
       - name: '[Check] Extract AEM contents'
@@ -220,7 +220,7 @@ jobs:
         with:
           access_token: ${{ steps.get-access-token-for-aem.outputs.access_token }}
           aem_url: ${{ github.event.inputs.root_mountpoint }}
-          content_paths: ${{ steps.aem-content-paths.outputs.content_paths }}
+          page_paths: ${{ steps.aem-content-paths.outputs.page_paths }}
           is_preview: 'true'
 
       - name: '[Check] Replicate content to AEM Preview'
@@ -248,7 +248,7 @@ jobs:
         with:
           access_token: ${{ steps.get-access-token-for-aem.outputs.access_token }}
           aem_url: ${{ github.event.inputs.root_mountpoint }}
-          content_paths: ${{ steps.aem-content-paths.outputs.content_paths }}
+          page_paths: ${{ steps.aem-content-paths.outputs.page_paths }}
           is_preview: 'false'
 
       - name: '[Check] Replicate content to AEM Publish'

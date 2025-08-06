@@ -42,18 +42,13 @@ function getFilterPaths(xmlString) {
 function getContentPackagePath(zipContentsPath) {
   // Find the first .zip file in the directory
   const files = fs.readdirSync(zipContentsPath);
-  const zipFiles = files.filter((file) => file.endsWith('.zip'));
-
-  if (zipFiles.length === 0) {
+  const firstZipFile = files.find((file) => file.endsWith('.zip'));
+  if (!firstZipFile) {
     throw new Error('No .zip files found in the specified directory.');
   }
-  // Contents should contain one content package zip file and a single asset mapping file.
-  if (files.length > 2) {
-    throw new Error(`Too many files found in the Zip Contents folder (${files.length}).`);
-  }
 
-  // Return the first .zip file found
-  return path.join(zipContentsPath, zipFiles[0]);
+  // Return the first .zip file found - presumably the content package
+  return path.join(zipContentsPath, firstZipFile);
 }
 
 export async function doExtractContentPaths(zipContentsPath) {
@@ -74,7 +69,7 @@ export async function doExtractContentPaths(zipContentsPath) {
             } else {
               core.debug(`Filter XML content: ${data}`);
               const paths = getFilterPaths(data);
-              core.setOutput('content_paths', paths);
+              core.setOutput('page_paths', paths);
               resolve();
             }
           });

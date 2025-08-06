@@ -1,5 +1,5 @@
-name: "Upload XWalk"
-description: "Upload the Import Zip for XWalk"
+name: "XWalk Operations"
+description: "Perform XWalk operations"
 author: "Experience Catalyst"
 inputs:
   operation:
@@ -22,8 +22,8 @@ outputs:
     description: "Error message if the operation could not be completed"
   content_package_path:
     description: "The path to the content package zip file."
-  content_paths:
-    description: "The list of content paths to replicate as a comma-delimited string."
+  page_paths:
+    description: "The list of page paths to replicate as a comma-delimited string."
 
 runs:
   using: 'node20'

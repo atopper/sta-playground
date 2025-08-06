@@ -18,7 +18,7 @@ import { doExtractContentPaths } from './xwalk-content.js';
 
 export const XWALK_OPERATIONS = Object.freeze({
   UPLOAD: 'upload',
-  CONTENT_PACKAGE: 'content-package',
+  GET_PAGE_PATHS: 'get-page-paths',
 });
 
 /**
@@ -85,7 +85,7 @@ async function doUpload(
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`aem-xwalk-upload failed. Error: ${errorOutput}`));
+        reject(new Error(`AEM upload failed. Error: ${errorOutput}`));
       }
     });
   });
@@ -106,8 +106,8 @@ async function doUpload(
  * |-----------------|----------------------|---------------------------------------|----------|
  * | OUTPUTS                                                                             |
  * | *               | error_message        | Error if operation could not complete.| Output   |
- * | CONTENT_PACKAGE | content_package_path | Path to content package zip file.     | Output   |
- * | CONTENT_PACKAGE | content_paths        | Comma-delimited list of content paths.| Output   |
+ * | GET_PAGE_PATHS  | content_package_path | Path to content package zip file.     | Output   |
+ * | GET_PAGE_PATHS  | page_paths           | Comma-delimited list of page paths.   | Output   |
  *
  * @returns {Promise<void>}
  */
@@ -148,7 +148,7 @@ export async function run() {
         skipAssets,
       );
       core.info('✅ Upload completed successfully.');
-    } else if (operation === XWALK_OPERATIONS.CONTENT_PACKAGE) {
+    } else if (operation === XWALK_OPERATIONS.GET_PAGE_PATHS) {
       // Validate the existence of the asset mapping file
       const assetMappingPath = path.join(zipContentsPath, 'asset-mapping.json');
       if (!fs.existsSync(assetMappingPath)
