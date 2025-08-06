@@ -79,8 +79,8 @@ async function replicateToPreview(accessToken, aemUrl, contentPaths) {
  * @returns {Promise<Object>}
  */
 async function replicateToPublish(accessToken, aemUrl, contentPaths) {
-  const host = new URL(aemUrl);
-  const replicateUrl = `${host.origin}/bin/replicate`;
+  const url = new URL(aemUrl);
+  const replicateUrl = `${url.origin}/bin/replicate`;
   core.info(`🔗 Using AEM replicate endpoint: ${replicateUrl}`);
 
   // Create form data for the replicate endpoint
@@ -151,7 +151,7 @@ export async function run() {
   try {
     const accessToken = core.getInput('access_token');
     const aemUrl = core.getInput('aem_url');
-    const contentPathsInput = core.getInput('content_paths');
+    const contentPathsInput = core.getInput('page_paths');
     const isPreview = core.getInput('is_preview') === 'true';
 
     // Validate inputs
