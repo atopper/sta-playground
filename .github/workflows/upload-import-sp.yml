@@ -121,7 +121,7 @@ jobs:
           echo "total_steps=$total_steps" >> $GITHUB_ENV
           echo "preview_operation=$preview_operation" >> $GITHUB_ENV
           echo "successLinks=$publishLinks" >> $GITHUB_ENV
-          echo $successLinks
+          echo Links: $publishLinks
 
       - name: Checkout
         uses: actions/checkout@v4
