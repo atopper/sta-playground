@@ -100,19 +100,28 @@ jobs:
             errorMessage+="❌ The following variables or secrets in your GitHub repo are in the wrong format: $bad_format"
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
-          
+
+          DEFAULT_BRANCH=$(echo '${{ toJson(github) }}' | jq -r '.event.project.defaultBranch')
+          REPO=$(echo '${{ toJson(github) }}' | jq -r '.event.project.repo')
+          OWNER=$(echo '${{ toJson(github) }}' | jq -r '.event.project.owner')          
+          publishLinks=''
+
           total_steps=5        
           preview_operation=''
           if ${{ github.event.inputs.preview == 'true' }}; then
             total_steps=6
             preview_operation='preview'
+            publishLinks='JS_LFJS_LF🕵 After the workflow completes, you can preview the uploaded content here:JS_LF- Preview: https://${DEFAULT_BRANCH}--${REPO}--${OWNER}.aem.page'
           fi
           if ${{ github.event.inputs.previewAndPublish == 'true' }}; then
             total_steps=6
             preview_operation='preview and publish'
+            publishLinks='JS_LFJS_LF🕵 After the workflow completes, you can preview the uploaded content here:JS_LF- Preview: https://${DEFAULT_BRANCH}--${REPO}--${OWNER}.aem.page JS_LF- Preview: https://${DEFAULT_BRANCH}--${REPO}--${OWNER}.aem.live'
           fi
           echo "total_steps=$total_steps" >> $GITHUB_ENV
           echo "preview_operation=$preview_operation" >> $GITHUB_ENV
+          echo "successLinks=$publishLinks" >> $GITHUB_ENV
+          echo $successLinks
 
       - name: Checkout
         uses: actions/checkout@v4
