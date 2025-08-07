@@ -101,7 +101,7 @@ jobs:
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
 
-          AEMY_CONTEXT_RAW=$(echo '${{ toJson(github.event.aemy_context) }}')
+          AEMY_CONTEXT_RAW=${{ toJson(github.event.aemy_context) }}
           AEMY_CONTEXT=$(echo "$AEMY_CONTEXT_RAW" | jq -r | jq -r '.')
           DEFAULT_BRANCH=$(echo "$AEMY_CONTEXT" | jq -r '.project.branch')
           REPO=$(echo "$AEMY_CONTEXT" | jq -r '.project.repo')
