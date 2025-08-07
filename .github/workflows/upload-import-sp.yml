@@ -100,16 +100,13 @@ jobs:
             errorMessage+="❌ The following variables or secrets in your GitHub repo are in the wrong format: $bad_format"
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
-      
-          echo 'Raw aemy_context:'
-          echo "${{ github.event.inputs.aemy_context }}"
-          echo 'JSON-encoded aemy_context:'
-          echo "${{ toJson(github.event.inputs.aemy_context) }}"
-          AEMY_CONTEXT_RAW=${{ toJson(github.event.inputs.aemy_context) }}
-          AEMY_CONTEXT=$(echo "${{ github.event.inputs.aemy_context }}" | jq -r | jq -r '.')
-          DEFAULT_BRANCH=$(echo "$AEMY_CONTEXT" | jq -r '.project.branch')
-          REPO=$(echo "$AEMY_CONTEXT" | jq -r '.project.repo')
-          OWNER=$(echo "$AEMY_CONTEXT" | jq -r '.project.owner')        
+  
+
+          AEMY_CONTEXT_JSON=${{ toJson(github.event.inputs.aemy_context) }}
+          PARSED_JSON=$(echo "$AEMY_CONTEXT_JSON" | jq -r | jq '.')
+          DEFAULT_BRANCH=$(echo "$PARSED_JSON" | jq -r '.project.branch')
+          REPO=$(echo "$PARSED_JSON" | jq -r '.project.repo')
+          OWNER=$(echo "$PARSED_JSON" | jq -r '.project.owner')
           publishLinks=''
 
           total_steps=5        
@@ -322,9 +319,9 @@ jobs:
           
           if [ "${{ steps.upload-sharepoint.outputs.upload_failures }}" != "0" ]; then
             if [ "${{ steps.upload-sharepoint.outputs.upload_failed_locked }}" != "0" ]; then
-              message="Failed to upload ${{ steps.upload-sharepoint.outputs.upload_failures }} file(s), ${{ steps.upload-sharepoint.outputs.upload_failed_locked }} of which were locked on SharePoint (HINT: If you have these files open for editing, close them and try again.)JS_LFUploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files successfully. ${{ env.ACTION_URL }}"
+              message="Failed to upload ${{ steps.upload-sharepoint.outputs.upload_failures }} file(s), ${{ steps.upload-sharepoint.outputs.upload_failed_locked }} of which were locked on SharePoint (HINT: If you have these files open for editing, close them and try again.)JS_LFUploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files successfully."
             else
-              message="Failed to upload ${{ steps.upload-sharepoint.outputs.upload_failures }} file(s).JS_LFUploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files successfully. ${{ env.ACTION_URL }}"
+              message="Failed to upload ${{ steps.upload-sharepoint.outputs.upload_failures }} file(s).JS_LFUploaded ${{ steps.upload-sharepoint.outputs.upload_successes }} files successfully."
             fi
             echo "errorMessage=$message" >> $GITHUB_ENV
           fi
