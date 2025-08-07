@@ -101,9 +101,11 @@ jobs:
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
 
-          DEFAULT_BRANCH=$(echo '${{ toJson(github) }}' | jq -r '.event.project.defaultBranch')
-          REPO=$(echo '${{ toJson(github) }}' | jq -r '.event.project.repo')
-          OWNER=$(echo '${{ toJson(github) }}' | jq -r '.event.project.owner')          
+          AEMY_CONTEXT_RAW=$(echo '${{ toJson(github.event.aemy_context) }}')
+          AEMY_CONTEXT=$(echo "$AEMY_CONTEXT_RAW" | jq -r | jq -r '.')
+          DEFAULT_BRANCH=$(echo "$AEMY_CONTEXT" | jq -r '.project.branch')
+          REPO=$(echo "$AEMY_CONTEXT" | jq -r '.project.repo')
+          OWNER=$(echo "$AEMY_CONTEXT" | jq -r '.project.owner')        
           publishLinks=''
 
           total_steps=5        
