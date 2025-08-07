@@ -104,9 +104,9 @@ jobs:
           echo 'Raw aemy_context:'
           echo "${{ github.event.inputs.aemy_context }}"
           echo 'JSON-encoded aemy_context:'
-          echo '${{ toJson(github.event.inputs.aemy_context) }}
+          echo "${{ toJson(github.event.inputs.aemy_context) }}"
           AEMY_CONTEXT_RAW=${{ toJson(github.event.inputs.aemy_context) }}
-          AEMY_CONTEXT=$(echo "$AEMY_CONTEXT_RAW" | jq -r | jq -r '.')
+          AEMY_CONTEXT=$(echo "${{ github.event.inputs.aemy_context }}" | jq -r | jq -r '.')
           DEFAULT_BRANCH=$(echo "$AEMY_CONTEXT" | jq -r '.project.branch')
           REPO=$(echo "$AEMY_CONTEXT" | jq -r '.project.repo')
           OWNER=$(echo "$AEMY_CONTEXT" | jq -r '.project.owner')        
