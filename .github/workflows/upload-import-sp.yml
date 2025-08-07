@@ -100,7 +100,11 @@ jobs:
             errorMessage+="❌ The following variables or secrets in your GitHub repo are in the wrong format: $bad_format"
             echo "errorMessage=$errorMessage" >> $GITHUB_ENV
           fi
-
+      
+          echo 'Raw aemy_context:'
+          echo "${{ github.event.aemy_context }}"
+          echo 'JSON-encoded aemy_context:'
+          echo '${{ toJson(github.event.aemy_context) }}
           AEMY_CONTEXT_RAW=${{ toJson(github.event.aemy_context) }}
           AEMY_CONTEXT=$(echo "$AEMY_CONTEXT_RAW" | jq -r | jq -r '.')
           DEFAULT_BRANCH=$(echo "$AEMY_CONTEXT" | jq -r '.project.branch')
